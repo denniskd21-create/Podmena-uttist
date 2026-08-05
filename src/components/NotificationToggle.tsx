@@ -195,11 +195,11 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
         <>
           {/* Backdrop on mobile */}
           <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-xs sm:hidden"
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs sm:hidden"
             onClick={() => setIsOpen(false)}
           />
 
-          <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#121218] border border-slate-700 rounded-2xl shadow-2xl z-50 p-4 text-slate-100 animate-in fade-in zoom-in-95 duration-150">
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] max-w-md sm:absolute sm:top-full sm:left-auto sm:right-0 sm:translate-x-0 sm:translate-y-0 sm:mt-2 sm:w-96 max-h-[90vh] overflow-y-auto bg-[#121218] border border-slate-700 rounded-2xl shadow-2xl z-50 p-4 text-slate-100 animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
               <div className="flex items-center gap-2">
