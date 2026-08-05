@@ -400,7 +400,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 
                     {isUpcomingSoon && (
                       <span className="px-2 py-0.5 bg-amber-500 text-black font-black text-[10px] rounded-lg animate-pulse shrink-0 whitespace-nowrap mt-0.5">
-                        🔔 через {minutesLeft === 0 ? '1' : minutesLeft} мин
+                        через {minutesLeft === 0 ? '1' : minutesLeft} мин
                       </span>
                     )}
                   </div>

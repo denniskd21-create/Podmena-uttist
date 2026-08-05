@@ -13,7 +13,7 @@ import {
   ParsedTimePoint
 } from '../lib/notifications';
 import { Vehicle } from '../types';
-import { getSavedShiftForVehicle } from '../lib/storage';
+import { getSavedShiftForVehicle, getStoredVehicles, getLastVehicleId } from '../lib/storage';
 
 interface NotificationToggleProps {
   selectedVehicle: Vehicle | null;
@@ -49,7 +49,19 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
 
   // Check upcoming points & auto-disable if return time / last point passed
   useEffect(() => {
-    if (!selectedVehicle) {
+    // Resolve target vehicle (selected or last stored)
+    let targetVehicle = selectedVehicle;
+    if (!targetVehicle && typeof window !== 'undefined') {
+      const vehicles = getStoredVehicles();
+      const lastId = getLastVehicleId();
+      if (lastId) {
+        targetVehicle = vehicles.find((v) => v.id === lastId) || vehicles[0] || null;
+      } else if (vehicles.length > 0) {
+        targetVehicle = vehicles[0];
+      }
+    }
+
+    if (!targetVehicle) {
       setUpcomingPoint(null);
       return;
     }
@@ -58,20 +70,16 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
       const currentSettings = getNotificationSettings();
       const effectiveShift =
         activeShift ||
-        (selectedVehicle.shiftType === '2-сменка'
-          ? getSavedShiftForVehicle(selectedVehicle.id)
+        (targetVehicle.shiftType === '2-сменка'
+          ? getSavedShiftForVehicle(targetVehicle.id)
           : undefined);
 
-      const res = checkVehicleNotifications(selectedVehicle, currentSettings, effectiveShift);
-
-      if (res.autoDisabled) {
-        setSettings({ ...currentSettings, enabled: false });
-      }
+      const res = checkVehicleNotifications(targetVehicle, currentSettings, effectiveShift);
 
       if (res.upcomingPoint && res.minutesLeft !== undefined) {
         setUpcomingPoint({ point: res.upcomingPoint, minLeft: res.minutesLeft });
       } else {
-        const points = extractVehicleTimePoints(selectedVehicle, effectiveShift);
+        const points = extractVehicleTimePoints(targetVehicle, effectiveShift);
         if (points.length > 0) {
           const now = new Date();
           const currentMin = now.getHours() * 60 + now.getMinutes();
@@ -91,7 +99,7 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
           let found: { point: ParsedTimePoint; minLeft: number } | null = null;
           for (const p of points) {
             const diff = p.minutesFromMidnight - effNow;
-            if (diff > 0) {
+            if (diff >= 0) {
               if (!found || diff < found.minLeft) {
                 found = { point: p, minLeft: diff };
               }
@@ -105,7 +113,7 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
     };
 
     checkUpcoming();
-    const interval = setInterval(checkUpcoming, 10000); // refresh every 10s
+    const interval = setInterval(checkUpcoming, 1000); // refresh every 1 second for live real-time countdown
 
     const handleShiftChange = () => checkUpcoming();
     window.addEventListener('vehicle_shift_changed', handleShiftChange);

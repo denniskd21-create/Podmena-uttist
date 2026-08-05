@@ -342,8 +342,7 @@ export function checkVehicleNotifications(
 
   // Check if shift is finished (current time is past return time / last point)
   if (effNow > retMins) {
-    saveNotificationSettings({ ...settings, enabled: false });
-    return { notifiedCount: 0, autoDisabled: true };
+    return { notifiedCount: 0, autoDisabled: false };
   }
 
   const notifiedMap = getNotifiedPointsToday();
@@ -355,7 +354,7 @@ export function checkVehicleNotifications(
   for (const p of points) {
     const diff = p.minutesFromMidnight - effNow;
 
-    if (diff >= 0 && diff <= settings.leadMinutes) {
+    if (diff >= 0) {
       if (minMinutesLeft === undefined || diff < minMinutesLeft) {
         minMinutesLeft = diff;
         upcomingPoint = p;
@@ -400,3 +399,58 @@ export function checkVehicleNotifications(
 
   return { notifiedCount, upcomingPoint, minutesLeft: minMinutesLeft };
 }
+
+/**
+ * Web Worker for background ticking even when tab is minimized/hidden
+ */
+let bgWorker: Worker | null = null;
+
+export function startBackgroundNotificationWorker(
+  getVehicles: () => { selectedVehicle: Vehicle | null; allVehicles: Vehicle[] }
+) {
+  if (typeof window === 'undefined' || !('Worker' in window)) return;
+
+  if (bgWorker) {
+    bgWorker.terminate();
+    bgWorker = null;
+  }
+
+  try {
+    const workerBlob = new Blob([`
+      let timer = null;
+      self.onmessage = function(e) {
+        if (e.data === 'start') {
+          if (timer) clearInterval(timer);
+          timer = setInterval(function() {
+            self.postMessage('tick');
+          }, 2000);
+        } else if (e.data === 'stop') {
+          if (timer) clearInterval(timer);
+          timer = null;
+        }
+      };
+    `], { type: 'application/javascript' });
+
+    bgWorker = new Worker(URL.createObjectURL(workerBlob));
+    bgWorker.onmessage = () => {
+      const settings = getNotificationSettings();
+      if (!settings.enabled) return;
+
+      const { selectedVehicle, allVehicles } = getVehicles();
+      const vehiclesToCheck = selectedVehicle ? [selectedVehicle] : allVehicles;
+
+      for (const v of vehiclesToCheck) {
+        const activeShift =
+          v.shiftType === '2-сменка'
+            ? getSavedShiftForVehicle(v.id)
+            : undefined;
+        checkVehicleNotifications(v, settings, activeShift);
+      }
+    };
+
+    bgWorker.postMessage('start');
+  } catch (e) {
+    console.warn('Could not start Web Worker for background notifications:', e);
+  }
+}
+

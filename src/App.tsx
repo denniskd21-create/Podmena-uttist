@@ -22,7 +22,8 @@ import {
 } from './lib/firebase';
 import {
   getNotificationSettings,
-  checkVehicleNotifications
+  checkVehicleNotifications,
+  startBackgroundNotificationWorker
 } from './lib/notifications';
 import { Header } from './components/Header';
 import { SearchPad } from './components/SearchPad';
@@ -144,28 +145,32 @@ export default function App() {
     return null;
   }, [vehicles, selectedVehicleId, filteredVehicles]);
 
-  // Periodic background check for 15-minute point notifications
+  // Periodic background check for point notifications & Web Worker background ticker
   useEffect(() => {
-    if (!selectedVehicle) return;
+    startBackgroundNotificationWorker(() => ({
+      selectedVehicle,
+      allVehicles: vehicles
+    }));
 
     const check = () => {
       const settings = getNotificationSettings();
       if (settings.enabled) {
-        const activeShift =
-          selectedVehicle.shiftType === '2-сменка'
-            ? getSavedShiftForVehicle(selectedVehicle.id)
-            : undefined;
-        checkVehicleNotifications(selectedVehicle, settings, activeShift);
+        const targetVehicles = selectedVehicle ? [selectedVehicle] : vehicles;
+        for (const v of targetVehicles) {
+          const activeShift =
+            v.shiftType === '2-сменка'
+              ? getSavedShiftForVehicle(v.id)
+              : undefined;
+          checkVehicleNotifications(v, settings, activeShift);
+        }
       }
     };
 
     check();
-    const timer = setInterval(check, 15000); // Check every 15 seconds
+    const timer = setInterval(check, 5000); // Check every 5 seconds
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        check();
-      }
+      check();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -173,7 +178,7 @@ export default function App() {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [selectedVehicle]);
+  }, [selectedVehicle, vehicles]);
 
   // Handle Search Input Change
   const handleSearchChange = (val: string) => {
