@@ -70,7 +70,6 @@ export const Header: React.FC<HeaderProps> = ({
             src="/logo.png"
             alt="Подмена"
             className="w-9 h-9 object-contain shrink-0"
-            referrerPolicy="no-referrer"
           />
           <div>
             <h1 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight">

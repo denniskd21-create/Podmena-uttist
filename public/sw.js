@@ -1,7 +1,6 @@
-const CACHE_NAME = 'podmena-uttist-v9';
+const CACHE_NAME = 'podmena-uttist-v10';
 const ASSETS = [
   '/',
-  '/index.html',
   '/manifest.json',
   '/logo.png',
   '/pwa-icon-192.png',
@@ -12,7 +11,15 @@ const ASSETS = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.allSettled(
+        ASSETS.map((url) =>
+          cache.add(url).catch((err) => {
+            console.warn('Failed to cache asset:', url, err);
+          })
+        )
+      );
+    })
   );
   self.skipWaiting();
 });
@@ -30,9 +37,28 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match('/') || caches.match('/index.html');
+      })
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
-      return cached || fetch(event.request).catch(() => caches.match('/index.html'));
-    })
+      if (cached) return cached;
+      return fetch(event.request).then((response) => {
+        if (response && response.status === 200 && response.type === 'basic') {
+          const responseToCache = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return response;
+      });
+    }).catch(() => fetch(event.request))
   );
 });

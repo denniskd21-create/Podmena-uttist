@@ -12,7 +12,20 @@ import {
 } from 'firebase/firestore';
 import { Vehicle } from '../types';
 import { INITIAL_VEHICLES } from '../data/mockVehicles';
-import firebaseConfig from '../../firebase-applet-config.json';
+
+// Hardcoded Firebase configuration for direct connection (e.g. on Vercel)
+const firebaseConfig = {
+  projectId: "watchful-snow-75xj8",
+  appId: "1:429685830538:web:cdc0eaac9c437954ed8e73",
+  apiKey: "AIzaSyD7Gule-fCuexqXH3nvzpnGq4C5OjAkxhg",
+  authDomain: "watchful-snow-75xj8.firebaseapp.com",
+  firestoreDatabaseId: "ai-studio-02e8e413-8742-4413-b192-a358c5a8a6bd",
+  storageBucket: "watchful-snow-75xj8.firebasestorage.app",
+  messagingSenderId: "429685830538",
+  measurementId: "",
+  oAuthClientId: "429685830538-e5e8nqik3adsa10u3hcb7jq3dcohmo9f.apps.googleusercontent.com",
+  recaptchaSiteKey: ""
+};
 
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
