@@ -79,8 +79,8 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
   const [autoColumn, setAutoColumn] = useState<AutoColumn>('1');
   const [shiftType, setShiftType] = useState<ShiftType>('1-сменка');
 
-  const [departureTime, setDepartureTime] = useState('06:30');
-  const [returnTime, setReturnTime] = useState('18:30');
+  const [departureTime, setDepartureTime] = useState('06:00');
+  const [returnTime, setReturnTime] = useState('18:00');
 
   // 2-Shift specific inputs
   const [shift1Departure, setShift1Departure] = useState('06:00');
@@ -264,11 +264,11 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       setAutoColumn(initialVehicle.autoColumn || '1');
       setShiftType(initialVehicle.shiftType || '1-сменка');
 
-      setDepartureTime(initialVehicle.departureTime || '06:30');
-      setReturnTime(initialVehicle.returnTime || '18:30');
+      setDepartureTime(initialVehicle.departureTime || initialVehicle.shift1Departure || '06:00');
+      setReturnTime(initialVehicle.returnTime || initialVehicle.shift1Return || '18:00');
 
-      setShift1Departure(initialVehicle.shift1Departure || '06:00');
-      setShift1Return(initialVehicle.shift1Return || '18:00');
+      setShift1Departure(initialVehicle.shift1Departure || initialVehicle.departureTime || '06:00');
+      setShift1Return(initialVehicle.shift1Return || initialVehicle.returnTime || '18:00');
 
       setShift2Departure(initialVehicle.shift2Departure || '18:00');
       setShift2Return(initialVehicle.shift2Return || '06:00');
@@ -317,8 +317,8 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       setVehicleType('вахтовка');
       setAutoColumn('1');
       setShiftType('1-сменка');
-      setDepartureTime('06:30');
-      setReturnTime('18:30');
+      setDepartureTime('06:00');
+      setReturnTime('18:00');
       setShift1Departure('06:00');
       setShift1Return('18:00');
       setShift2Departure('18:00');
@@ -420,8 +420,12 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       autoColumn,
       shiftType,
 
-      departureTime: finalizeTimeFormat(departureTime, '06:30'),
-      returnTime: finalizeTimeFormat(returnTime, '18:30'),
+      departureTime: shiftType === '2-сменка'
+        ? finalizeTimeFormat(shift1Departure, '06:00')
+        : finalizeTimeFormat(departureTime, '06:00'),
+      returnTime: shiftType === '2-сменка'
+        ? finalizeTimeFormat(shift1Return, '18:00')
+        : finalizeTimeFormat(returnTime, '18:00'),
 
       shift1Departure: finalizeTimeFormat(shift1Departure, '06:00'),
       shift1Return: finalizeTimeFormat(shift1Return, '18:00'),
@@ -685,11 +689,11 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    placeholder="06:30"
+                    placeholder="06:00"
                     maxLength={5}
                     value={departureTime}
                     onChange={(e) => setDepartureTime(formatTimeInput(e.target.value))}
-                    onBlur={(e) => setDepartureTime(finalizeTimeFormat(e.target.value, '06:30'))}
+                    onBlur={(e) => setDepartureTime(finalizeTimeFormat(e.target.value, '06:00'))}
                     className="w-full p-2 bg-[#1A1A22] border border-slate-700 rounded-lg font-mono text-white text-center"
                   />
                 </div>
@@ -699,11 +703,11 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    placeholder="18:30"
+                    placeholder="18:00"
                     maxLength={5}
                     value={returnTime}
                     onChange={(e) => setReturnTime(formatTimeInput(e.target.value))}
-                    onBlur={(e) => setReturnTime(finalizeTimeFormat(e.target.value, '18:30'))}
+                    onBlur={(e) => setReturnTime(finalizeTimeFormat(e.target.value, '18:00'))}
                     className="w-full p-2 bg-[#1A1A22] border border-slate-700 rounded-lg font-mono text-white text-center"
                   />
                 </div>

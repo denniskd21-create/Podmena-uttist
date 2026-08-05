@@ -1,12 +1,8 @@
-const CACHE_NAME = 'podmena-uttist-v12';
+const CACHE_NAME = 'podmena-uttist-v13';
 const ASSETS = [
   '/',
   '/manifest.json',
-  '/logo.png',
-  '/pwa-icon-192.png',
-  '/pwa-icon-512.png',
-  '/pwa-maskable.png',
-  '/apple-touch-icon.png'
+  '/logo.png'
 ];
 
 self.addEventListener('install', (event) => {

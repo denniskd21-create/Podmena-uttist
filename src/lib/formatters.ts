@@ -138,21 +138,54 @@ export function formatPhoneNumber(val: string): string {
 
 /**
  * Format Time Input as user types: HH:MM
+ * Intelligently masks digits, e.g.:
+ * "6" -> "6"
+ * "63" -> "06:3"
+ * "630" -> "06:30"
+ * "183" -> "18:3"
+ * "1830" -> "18:30"
  */
 export function formatTimeInput(val: string): string {
+  if (!val) return '';
   const digits = val.replace(/\D/g, '').slice(0, 4);
   if (digits.length === 0) return '';
-  if (digits.length <= 2) return digits;
-  
+  if (digits.length === 1) return digits;
+
+  const d0 = digits[0];
+
+  // If first digit is 3..9 (e.g. '63', '630', '915', '800'), hour is 1-digit (06, 09, 08, etc.)
+  if (/[3-9]/.test(d0)) {
+    const hhStr = '0' + d0;
+    const mmDigits = digits.slice(1);
+    if (mmDigits.length === 1) {
+      return `${hhStr}:${mmDigits}`;
+    }
+    let mm = parseInt(mmDigits.slice(0, 2), 10);
+    if (isNaN(mm)) mm = 0;
+    if (mm > 59) mm = 59;
+    const mmStr = mm.toString().padStart(2, '0');
+    return `${hhStr}:${mmStr}`;
+  }
+
+  // First digit is 0, 1, or 2
+  if (digits.length === 2) {
+    return digits;
+  }
+
+  if (digits.length === 3) {
+    let hh = parseInt(digits.slice(0, 2), 10);
+    if (hh > 23) hh = 23;
+    const hhStr = hh.toString().padStart(2, '0');
+    const m1 = digits[2];
+    return `${hhStr}:${m1}`;
+  }
+
+  // 4 digits: e.g. 0630, 1830
   let hh = parseInt(digits.slice(0, 2), 10);
   if (hh > 23) hh = 23;
   const hhStr = hh.toString().padStart(2, '0');
 
-  const mmDigits = digits.slice(2);
-  if (mmDigits.length === 1) {
-    return `${hhStr}:${mmDigits}`;
-  }
-  let mm = parseInt(mmDigits, 10);
+  let mm = parseInt(digits.slice(2, 4), 10);
   if (mm > 59) mm = 59;
   const mmStr = mm.toString().padStart(2, '0');
 
@@ -160,23 +193,47 @@ export function formatTimeInput(val: string): string {
 }
 
 /**
- * Finalize time format on blur (e.g. "630" -> "06:30", "6" -> "06:00")
+ * Finalize time format on blur (e.g. "630" -> "06:30", "6" -> "06:00", "183" -> "18:30")
  */
 export function finalizeTimeFormat(val: string, defaultTime: string = '06:00'): string {
+  if (!val) return defaultTime;
   const digits = val.replace(/\D/g, '');
   if (digits.length === 0) return defaultTime;
-  if (digits.length === 1) return `0${digits}:00`;
+
+  const d0 = digits[0];
+
+  // If starts with 3..9 (e.g. "6", "63", "630")
+  if (/[3-9]/.test(d0)) {
+    const hhStr = '0' + d0;
+    const mmDigits = digits.slice(1);
+    if (mmDigits.length === 0) return `${hhStr}:00`;
+    if (mmDigits.length === 1) return `${hhStr}:${mmDigits}0`;
+    let mm = parseInt(mmDigits.slice(0, 2), 10);
+    if (isNaN(mm)) mm = 0;
+    if (mm > 59) mm = 59;
+    return `${hhStr}:${mm.toString().padStart(2, '0')}`;
+  }
+
+  // Starts with 0..2
+  if (digits.length === 1) {
+    return `0${digits}:00`;
+  }
   if (digits.length === 2) {
-    const hh = Math.min(23, parseInt(digits, 10)).toString().padStart(2, '0');
-    return `${hh}:00`;
+    let hh = parseInt(digits, 10);
+    if (hh > 23) hh = 23;
+    return `${hh.toString().padStart(2, '0')}:00`;
   }
   if (digits.length === 3) {
-    const hh = `0${digits[0]}`;
-    let mm = parseInt(digits.slice(1), 10);
+    let hh = parseInt(digits.slice(0, 2), 10);
+    if (hh > 23) hh = 23;
+    let mm = parseInt(digits[2] + '0', 10);
     if (mm > 59) mm = 59;
-    return `${hh}:${mm.toString().padStart(2, '0')}`;
+    return `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
   }
-  let hh = Math.min(23, parseInt(digits.slice(0, 2), 10)).toString().padStart(2, '0');
-  let mm = Math.min(59, parseInt(digits.slice(2, 4), 10)).toString().padStart(2, '0');
-  return `${hh}:${mm}`;
+
+  let hh = parseInt(digits.slice(0, 2), 10);
+  if (hh > 23) hh = 23;
+  let mm = parseInt(digits.slice(2, 4), 10);
+  if (mm > 59) mm = 59;
+  return `${hh.toString().padStart(2, '0')}:${mm.toString().padStart(2, '0')}`;
 }

@@ -210,7 +210,7 @@ export const VehicleList: React.FC<VehicleListProps> = ({
                   </div>
                   <div className="flex items-center gap-1 text-slate-400 text-[11px]">
                     <Clock className="w-3 h-3 text-emerald-400" />
-                    Выезд: {v.departureTime || '—'}
+                    Выезд: {v.shiftType === '2-сменка' ? (v.shift1Departure || v.departureTime || '—') : (v.departureTime || '—')}
                   </div>
                 </div>
 
