@@ -123,7 +123,7 @@ export function playNotificationSound() {
 /**
  * Send a system notification (works via ServiceWorker or Web Notification API)
  */
-export async function sendSystemNotification(title: string, body: string): Promise<boolean> {
+export async function sendSystemNotification(title: string, body: string, tag?: string): Promise<boolean> {
   if (typeof window === 'undefined' || !('Notification' in window)) {
     return false;
   }
@@ -138,7 +138,7 @@ export async function sendSystemNotification(title: string, body: string): Promi
     badge: '/logo.png',
     vibrate: [200, 100, 200, 100, 200],
     requireInteraction: true,
-    tag: 'podmena-point-alert',
+    tag: tag || 'podmena-point-alert',
   };
 
   // Prefer ServiceWorker registration showNotification if available (for smartwatch / background push)
@@ -355,24 +355,44 @@ export function checkVehicleNotifications(
   for (const p of points) {
     const diff = p.minutesFromMidnight - effNow;
 
-    // Is upcoming within leadMinutes (e.g., 0 < diff <= 15)
-    if (diff > 0 && diff <= settings.leadMinutes) {
+    if (diff >= 0 && diff <= settings.leadMinutes) {
       if (minMinutesLeft === undefined || diff < minMinutesLeft) {
         minMinutesLeft = diff;
         upcomingPoint = p;
       }
+    }
 
-      const pointKey = `${vehicle.id}_${p.timeStr}_${p.label}`;
-      if (!notifiedMap[pointKey]) {
-        // Send alert!
-        const title = `${vehicle.garageNumber} - через ${diff} минут`;
+    // 1) Предварительное уведомление (за 15 минут до события)
+    if (diff > 0 && diff <= settings.leadMinutes) {
+      const preKey = `${vehicle.id}_${p.timeStr}_${p.label}_pre`;
+      const legacyKey = `${vehicle.id}_${p.timeStr}_${p.label}`;
+      if (!notifiedMap[preKey] && !notifiedMap[legacyKey]) {
+        const minutesWord = diff === 1 ? 'минуту' : diff < 5 ? 'минуты' : 'минут';
+        const title = `${vehicle.garageNumber} - через ${diff} ${minutesWord}`;
         const body = `В ${p.timeStr} : ${p.label}`;
 
-        sendSystemNotification(title, body);
+        sendSystemNotification(title, body, preKey);
         if (settings.soundEnabled) {
           playNotificationSound();
         }
-        markPointNotifiedToday(pointKey);
+        markPointNotifiedToday(preKey);
+        markPointNotifiedToday(legacyKey);
+        notifiedCount++;
+      }
+    }
+
+    // 2) Уведомление ровно в момент события (минуту в минуту)
+    if (diff === 0) {
+      const exactKey = `${vehicle.id}_${p.timeStr}_${p.label}_exact`;
+      if (!notifiedMap[exactKey]) {
+        const title = `${vehicle.garageNumber} - Сейчас! (${p.timeStr})`;
+        const body = `В ${p.timeStr} : ${p.label}`;
+
+        sendSystemNotification(title, body, exactKey);
+        if (settings.soundEnabled) {
+          playNotificationSound();
+        }
+        markPointNotifiedToday(exactKey);
         notifiedCount++;
       }
     }
