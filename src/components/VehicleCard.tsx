@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Vehicle } from '../types';
-import { NotificationToggle } from './NotificationToggle';
+import { getSavedShiftForVehicle, saveShiftForVehicle } from '../lib/storage';
 import {
   Clock,
   MapPin,
@@ -32,13 +32,33 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   onDeleteNote,
   onDeleteNuance
 }) => {
-  const [activeShiftTab, setActiveShiftTab] = useState<'1' | '2'>('1');
+  const [activeShiftTab, setActiveShiftTab] = useState<'1' | '2'>(() =>
+    getSavedShiftForVehicle(vehicle.id)
+  );
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
-  // Reset confirmation box if vehicle ID changes
+  // Sync saved shift when vehicle ID changes
   useEffect(() => {
+    setActiveShiftTab(getSavedShiftForVehicle(vehicle.id));
     setShowConfirmDelete(false);
   }, [vehicle.id]);
+
+  // Listen for shift change events
+  useEffect(() => {
+    const handleShiftChange = (e: Event) => {
+      const custom = e as CustomEvent;
+      if (custom.detail?.vehicleId === vehicle.id && custom.detail?.shift) {
+        setActiveShiftTab(custom.detail.shift);
+      }
+    };
+    window.addEventListener('vehicle_shift_changed', handleShiftChange);
+    return () => window.removeEventListener('vehicle_shift_changed', handleShiftChange);
+  }, [vehicle.id]);
+
+  const handleShiftTabClick = (shift: '1' | '2') => {
+    setActiveShiftTab(shift);
+    saveShiftForVehicle(vehicle.id, shift);
+  };
 
   const handleDeleteConfirm = () => {
     setShowConfirmDelete(false);
@@ -153,8 +173,6 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-0 border-slate-800 flex-wrap">
-          <NotificationToggle selectedVehicle={vehicle} activeShift={isTwoShift ? activeShiftTab : undefined} />
-
           <button
             onClick={() => onAddNote(vehicle)}
             className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
@@ -209,7 +227,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             </div>
             <div className="flex items-center gap-1 bg-[#09090C] p-1 rounded-xl border border-slate-800">
               <button
-                onClick={() => setActiveShiftTab('1')}
+                onClick={() => handleShiftTabClick('1')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   activeShiftTab === '1'
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
@@ -219,7 +237,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                 1-я смена
               </button>
               <button
-                onClick={() => setActiveShiftTab('2')}
+                onClick={() => handleShiftTabClick('2')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   activeShiftTab === '2'
                     ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'

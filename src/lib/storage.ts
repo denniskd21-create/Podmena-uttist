@@ -156,3 +156,29 @@ export function saveLastSearchTerm(term: string): void {
   }
 }
 
+export function getSavedShiftForVehicle(vehicleId: string): '1' | '2' {
+  if (typeof window === 'undefined' || !vehicleId) return '1';
+  try {
+    const saved = localStorage.getItem(`uttist_vehicle_shift_${vehicleId}`);
+    if (saved === '1' || saved === '2') {
+      return saved;
+    }
+  } catch (err) {
+    console.error('Error reading saved shift:', err);
+  }
+  return '1';
+}
+
+export function saveShiftForVehicle(vehicleId: string, shift: '1' | '2'): void {
+  if (typeof window === 'undefined' || !vehicleId) return;
+  try {
+    localStorage.setItem(`uttist_vehicle_shift_${vehicleId}`, shift);
+    window.dispatchEvent(
+      new CustomEvent('vehicle_shift_changed', { detail: { vehicleId, shift } })
+    );
+  } catch (err) {
+    console.error('Error saving shift:', err);
+  }
+}
+
+

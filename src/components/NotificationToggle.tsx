@@ -13,6 +13,7 @@ import {
   ParsedTimePoint
 } from '../lib/notifications';
 import { Vehicle } from '../types';
+import { getSavedShiftForVehicle } from '../lib/storage';
 
 interface NotificationToggleProps {
   selectedVehicle: Vehicle | null;
@@ -38,9 +39,11 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
 
     window.addEventListener('storage', syncState);
     window.addEventListener('notification_settings_changed', syncState);
+    window.addEventListener('vehicle_shift_changed', syncState);
     return () => {
       window.removeEventListener('storage', syncState);
       window.removeEventListener('notification_settings_changed', syncState);
+      window.removeEventListener('vehicle_shift_changed', syncState);
     };
   }, []);
 
@@ -53,7 +56,13 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
 
     const checkUpcoming = () => {
       const currentSettings = getNotificationSettings();
-      const res = checkVehicleNotifications(selectedVehicle, currentSettings, activeShift);
+      const effectiveShift =
+        activeShift ||
+        (selectedVehicle.shiftType === '2-сменка'
+          ? getSavedShiftForVehicle(selectedVehicle.id)
+          : undefined);
+
+      const res = checkVehicleNotifications(selectedVehicle, currentSettings, effectiveShift);
 
       if (res.autoDisabled) {
         setSettings({ ...currentSettings, enabled: false });
@@ -62,16 +71,21 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
       if (res.upcomingPoint && res.minutesLeft !== undefined) {
         setUpcomingPoint({ point: res.upcomingPoint, minLeft: res.minutesLeft });
       } else {
-        const points = extractVehicleTimePoints(selectedVehicle, activeShift);
+        const points = extractVehicleTimePoints(selectedVehicle, effectiveShift);
         if (points.length > 0) {
           const now = new Date();
           const currentMin = now.getHours() * 60 + now.getMinutes();
           const firstPoint = points[0];
           const lastPoint = points[points.length - 1];
-          const isOvernight = lastPoint.minutesFromMidnight > 1440 || firstPoint.minutesFromMidnight > 1000;
+          const depMins = firstPoint.minutesFromMidnight;
+          const retMins = lastPoint.minutesFromMidnight;
+          const isOvernight = retMins > 1440 || depMins > 1000;
           let effNow = currentMin;
-          if (isOvernight && currentMin < 12 * 60) {
-            effNow = currentMin + 1440;
+          if (isOvernight) {
+            const retMinsDay = retMins > 1440 ? retMins - 1440 : retMins;
+            if (currentMin < depMins - 180 && currentMin <= retMinsDay + 180) {
+              effNow = currentMin + 1440;
+            }
           }
 
           let found: { point: ParsedTimePoint; minLeft: number } | null = null;
@@ -92,7 +106,14 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
 
     checkUpcoming();
     const interval = setInterval(checkUpcoming, 10000); // refresh every 10s
-    return () => clearInterval(interval);
+
+    const handleShiftChange = () => checkUpcoming();
+    window.addEventListener('vehicle_shift_changed', handleShiftChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('vehicle_shift_changed', handleShiftChange);
+    };
   }, [selectedVehicle, activeShift]);
 
   const handleToggle = async () => {
@@ -186,7 +207,7 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
           )}
         </div>
         <span className="whitespace-nowrap">
-          {isEnabledAndGranted ? 'Уведомления: Вкл' : '🔔 Уведомления'}
+          {isEnabledAndGranted ? 'Уведомления: Вкл' : 'Уведомления'}
         </span>
       </button>
 

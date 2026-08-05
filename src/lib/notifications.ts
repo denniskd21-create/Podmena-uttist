@@ -1,4 +1,5 @@
 import { Vehicle } from '../types';
+import { getSavedShiftForVehicle } from './storage';
 
 export interface NotificationSettings {
   enabled: boolean;
@@ -185,13 +186,7 @@ export function extractVehicleTimePoints(
   // Determine shift to extract
   let shiftToUse: '1' | '2' = activeShift || '1';
   if (isTwoShift && !activeShift) {
-    const nowHour = typeof window !== 'undefined' ? new Date().getHours() : 12;
-    // Night shift typically runs evening to morning (e.g. 17:00-06:00)
-    if (nowHour >= 17 || nowHour < 6) {
-      shiftToUse = '2';
-    } else {
-      shiftToUse = '1';
-    }
+    shiftToUse = getSavedShiftForVehicle(vehicle.id);
   }
 
   let depStr = '';
@@ -308,7 +303,6 @@ export function extractVehicleTimePoints(
 /**
  * Check if any time point for the given vehicle is upcoming within `leadMinutes` (e.g. 15 min)
  * and trigger notification if it hasn't been notified today yet.
- * Auto-disables notifications once the vehicle's shift return time / last point has passed.
  */
 export function checkVehicleNotifications(
   vehicle: Vehicle,
@@ -339,12 +333,15 @@ export function checkVehicleNotifications(
   const isOvernight = retMins > 1440 || depMins > 1000;
 
   let effNow = currentMinutes;
-  if (isOvernight && currentMinutes < 12 * 60) {
-    effNow = currentMinutes + 1440;
+  if (isOvernight) {
+    const retMinsDay = retMins > 1440 ? retMins - 1440 : retMins;
+    if (currentMinutes < depMins - 180 && currentMinutes <= retMinsDay + 180) {
+      effNow = currentMinutes + 1440;
+    }
   }
 
-  // Check if shift is finished (current time is past return time/last point)
-  if (effNow > retMins && effNow <= retMins + 360) {
+  // Check if shift is finished (current time is past return time / last point)
+  if (effNow > retMins) {
     saveNotificationSettings({ ...settings, enabled: false });
     return { notifiedCount: 0, autoDisabled: true };
   }

@@ -12,7 +12,8 @@ import {
   getLastVehicleId,
   saveLastVehicleId,
   getLastSearchTerm,
-  saveLastSearchTerm
+  saveLastSearchTerm,
+  getSavedShiftForVehicle
 } from './lib/storage';
 import {
   subscribeToVehicles,
@@ -150,13 +151,28 @@ export default function App() {
     const check = () => {
       const settings = getNotificationSettings();
       if (settings.enabled) {
-        checkVehicleNotifications(selectedVehicle, settings);
+        const activeShift =
+          selectedVehicle.shiftType === '2-сменка'
+            ? getSavedShiftForVehicle(selectedVehicle.id)
+            : undefined;
+        checkVehicleNotifications(selectedVehicle, settings, activeShift);
       }
     };
 
     check();
     const timer = setInterval(check, 15000); // Check every 15 seconds
-    return () => clearInterval(timer);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        check();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [selectedVehicle]);
 
   // Handle Search Input Change
