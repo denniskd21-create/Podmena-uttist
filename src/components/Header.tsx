@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Smartphone } from 'lucide-react';
+import { NotificationToggle } from './NotificationToggle';
+import { Vehicle } from '../types';
 
 interface HeaderProps {
   onOpenAddModal: () => void;
   totalVehiclesCount: number;
+  selectedVehicle: Vehicle | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenAddModal,
-  totalVehiclesCount
+  totalVehiclesCount,
+  selectedVehicle
 }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -82,15 +86,18 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Notification Toggle (top right) */}
+          <NotificationToggle selectedVehicle={selectedVehicle} />
+
           {!isInstalled && (
             <button
               onClick={handleInstallClick}
-              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shrink-0"
+              className="p-1.5 sm:px-2.5 sm:py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors shrink-0"
               title="Установить приложение Подмена"
             >
               <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Установить приложение</span>
+              <span className="hidden sm:inline">Установить</span>
             </button>
           )}
         </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Vehicle } from '../types';
+import { NotificationToggle } from './NotificationToggle';
 import {
   Clock,
   MapPin,
@@ -60,20 +61,65 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         : (vehicle.customerNotesShift2 || ''))
     : (vehicle.customerNotes || vehicle.customerNotesShift1);
 
-  // Helper to check if a route point's time has already passed
-  const isPointTimePassed = (pointText: string): boolean => {
-    if (!pointText) return false;
-    const match = pointText.match(/^(\d{1,2}):(\d{2})/);
-    if (!match) return false;
+  // Helper to check point time status: 'passed' | 'upcoming_soon' (<=15 min) | 'future'
+  const getPointTimeStatus = (pointText: string): { status: 'passed' | 'upcoming_soon' | 'future'; minutesLeft?: number } => {
+    if (!pointText) return { status: 'future' };
+    const match = pointText.match(/^(\d{1,2})[:.](\d{2})/);
+    if (!match) return { status: 'future' };
     const hours = parseInt(match[1], 10);
     const minutes = parseInt(match[2], 10);
-    if (isNaN(hours) || isNaN(minutes)) return false;
+    if (isNaN(hours) || isNaN(minutes)) return { status: 'future' };
+
+    const pMins = hours * 60 + minutes;
+
+    // Get active shift departure and return times
+    let depStr = '';
+    let retStr = '';
+    if (isTwoShift) {
+      if (activeShiftTab === '2') {
+        depStr = vehicle.shift2Departure || '18:00';
+        retStr = vehicle.shift2Return || '06:00';
+      } else {
+        depStr = vehicle.shift1Departure || vehicle.departureTime || '06:00';
+        retStr = vehicle.shift1Return || vehicle.returnTime || '18:00';
+      }
+    } else {
+      depStr = vehicle.departureTime || '06:00';
+      retStr = vehicle.returnTime || '18:00';
+    }
+
+    const parseMins = (str: string) => {
+      if (!str) return null;
+      const m = str.match(/(\d{1,2})[:.](\d{2})/);
+      return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
+    };
+
+    const depMins = parseMins(depStr) ?? 360;
+    const retMins = parseMins(retStr) ?? 1080;
+    const isOvernight = depMins > retMins;
+
+    let pShift = pMins;
+    if (isOvernight && pMins < depMins - 180) {
+      pShift = pMins + 1440;
+    }
 
     const now = new Date();
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const pointMinutes = hours * 60 + minutes;
+    const nowMins = now.getHours() * 60 + now.getMinutes();
 
-    return pointMinutes <= currentMinutes;
+    let nowShift = nowMins;
+    if (isOvernight && nowMins < retMins + 120) {
+      nowShift = nowMins + 1440;
+    }
+
+    const diff = pShift - nowShift;
+
+    if (diff < 0) {
+      return { status: 'passed' };
+    }
+    if (diff >= 0 && diff <= 15) {
+      return { status: 'upcoming_soon', minutesLeft: diff };
+    }
+    return { status: 'future', minutesLeft: diff };
   };
 
   return (
@@ -106,7 +152,9 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-0 border-slate-800">
+        <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-0 border-slate-800 flex-wrap">
+          <NotificationToggle selectedVehicle={vehicle} activeShift={isTwoShift ? activeShiftTab : undefined} />
+
           <button
             onClick={() => onAddNote(vehicle)}
             className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"
@@ -300,28 +348,43 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {currentPickupPoints.map((point, index) => {
-                const passed = isPointTimePassed(point);
+                const { status, minutesLeft } = getPointTimeStatus(point);
+                const isPassed = status === 'passed';
+                const isUpcomingSoon = status === 'upcoming_soon';
+
                 return (
                   <div
                     key={index}
-                    className={`p-2 rounded-xl border flex items-center gap-2 text-slate-200 transition-all ${
-                      passed
+                    className={`p-2 rounded-xl border flex items-start justify-between gap-2 text-slate-200 transition-all ${
+                      isUpcomingSoon
+                        ? 'bg-amber-950/80 border-amber-500/90 shadow-lg shadow-amber-950/50 ring-1 ring-amber-500/50'
+                        : isPassed
                         ? 'bg-[#18261E] border-emerald-800/80'
                         : 'bg-[#1A1A22] border-slate-800'
                     }`}
                   >
-                    <span
-                      className={`w-4 h-4 rounded-full flex items-center justify-center font-mono font-bold text-[10px] shrink-0 border ${
-                        passed
-                          ? 'bg-emerald-500 text-white border-emerald-400 shadow-sm shadow-emerald-500/40'
-                          : 'bg-blue-950 text-blue-300 border-blue-800'
-                      }`}
-                    >
-                      {index + 1}
-                    </span>
-                    <span className={passed ? 'text-emerald-200 font-medium' : 'text-slate-200'}>
-                      {point}
-                    </span>
+                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                      <span
+                        className={`w-4 h-4 rounded-full flex items-center justify-center font-mono font-bold text-[10px] shrink-0 border mt-0.5 ${
+                          isUpcomingSoon
+                            ? 'bg-amber-500 text-black border-amber-300 font-black animate-pulse'
+                            : isPassed
+                            ? 'bg-emerald-500 text-white border-emerald-400 shadow-sm shadow-emerald-500/40'
+                            : 'bg-blue-950 text-blue-300 border-blue-800'
+                        }`}
+                      >
+                        {index + 1}
+                      </span>
+                      <span className={`break-words whitespace-pre-wrap flex-1 text-xs leading-snug ${isUpcomingSoon ? 'text-amber-200 font-bold' : isPassed ? 'text-emerald-200 font-medium' : 'text-slate-200'}`}>
+                        {point}
+                      </span>
+                    </div>
+
+                    {isUpcomingSoon && (
+                      <span className="px-2 py-0.5 bg-amber-500 text-black font-black text-[10px] rounded-lg animate-pulse shrink-0 whitespace-nowrap mt-0.5">
+                        🔔 через {minutesLeft === 0 ? '1' : minutesLeft} мин
+                      </span>
+                    )}
                   </div>
                 );
               })}

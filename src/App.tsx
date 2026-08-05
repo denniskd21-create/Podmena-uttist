@@ -19,6 +19,10 @@ import {
   saveVehicleToFirestore,
   deleteVehicleFromFirestore
 } from './lib/firebase';
+import {
+  getNotificationSettings,
+  checkVehicleNotifications
+} from './lib/notifications';
 import { Header } from './components/Header';
 import { SearchPad } from './components/SearchPad';
 import { VehicleList } from './components/VehicleList';
@@ -127,6 +131,33 @@ export default function App() {
       return matchSearch && matchColumn && matchShift;
     });
   }, [vehicles, searchTerm, selectedColumn, selectedShift]);
+
+  // Derive active selected vehicle
+  const selectedVehicle = useMemo(() => {
+    if (selectedVehicleId) {
+      return vehicles.find((v) => v.id === selectedVehicleId) || null;
+    }
+    if (filteredVehicles.length === 1) {
+      return filteredVehicles[0];
+    }
+    return null;
+  }, [vehicles, selectedVehicleId, filteredVehicles]);
+
+  // Periodic background check for 15-minute point notifications
+  useEffect(() => {
+    if (!selectedVehicle) return;
+
+    const check = () => {
+      const settings = getNotificationSettings();
+      if (settings.enabled) {
+        checkVehicleNotifications(selectedVehicle, settings);
+      }
+    };
+
+    check();
+    const timer = setInterval(check, 15000); // Check every 15 seconds
+    return () => clearInterval(timer);
+  }, [selectedVehicle]);
 
   // Handle Search Input Change
   const handleSearchChange = (val: string) => {
@@ -272,6 +303,7 @@ export default function App() {
           setIsEditModalOpen(true);
         }}
         totalVehiclesCount={vehicles.length}
+        selectedVehicle={selectedVehicle}
       />
 
       {/* Main Container */}
