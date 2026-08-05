@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Smartphone } from 'lucide-react';
+import logoImg from '../assets/logo.png';
 
 interface HeaderProps {
   onOpenAddModal: () => void;
@@ -67,7 +68,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Logo & Title */}
         <div className="flex items-center space-x-2.5">
           <img
-            src="/logo.png"
+            src={logoImg}
             alt="Подмена"
             className="w-9 h-9 object-contain shrink-0"
           />

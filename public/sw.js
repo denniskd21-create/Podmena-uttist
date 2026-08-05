@@ -1,4 +1,4 @@
-const CACHE_NAME = 'podmena-uttist-v10';
+const CACHE_NAME = 'podmena-uttist-v12';
 const ASSETS = [
   '/',
   '/manifest.json',
@@ -13,11 +13,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return Promise.allSettled(
-        ASSETS.map((url) =>
-          cache.add(url).catch((err) => {
-            console.warn('Failed to cache asset:', url, err);
-          })
-        )
+        ASSETS.map((url) => cache.add(url).catch(() => {}))
       );
     })
   );
@@ -51,7 +47,7 @@ self.addEventListener('fetch', (event) => {
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((response) => {
-        if (response && response.status === 200 && response.type === 'basic') {
+        if (response && response.status === 200) {
           const responseToCache = response.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);
