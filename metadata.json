@@ -1,0 +1,6 @@
+{
+  "name": "УТТиСТ Подменный Водитель",
+  "description": "Справочник и оперативный блокнот подменного водителя УТТиСТ Газпром добыча Ямбург: гаражные номера, МВЗ, заказчики, время выезда, нюансы ТС и пересмены.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

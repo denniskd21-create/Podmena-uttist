@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "vehicles": {
+      "title": "Vehicles",
+      "description": "Vehicle fleet directory and driver assignments",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "garageNumber": { "type": "string" },
+        "licensePlate": { "type": "string" },
+        "column": { "type": "string" },
+        "brandModel": { "type": "string" },
+        "mvzCode": { "type": "string" },
+        "mvzDescription": { "type": "string" },
+        "drivers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "fullName": { "type": "string" },
+              "shift": { "type": "string" },
+              "phone": { "type": "string" },
+              "personnelNumber": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          }
+        },
+        "nuances": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "author": { "type": "string" },
+              "text": { "type": "string" },
+              "createdAt": { "type": "string" }
+            }
+          }
+        },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["garageNumber", "licensePlate"]
+    }
+  }
+}
