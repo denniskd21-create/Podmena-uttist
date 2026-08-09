@@ -16,7 +16,7 @@ import {
   getSavedShiftForVehicle
 } from './lib/storage';
 import {
-  subscribeToVehicles,
+  fetchVehiclesOnce,
   saveVehicleToFirestore,
   deleteVehicleFromFirestore
 } from './lib/firebase';
@@ -75,9 +75,11 @@ export default function App() {
       setSelectedVehicleId(null);
     }
 
-    // Subscribe to Firestore real-time updates across all devices
-    const unsubscribe = subscribeToVehicles(
-      (remoteVehicles) => {
+    // Fetch from Firestore once on screen load (single request, no infinite background listener loop)
+    let isMounted = true;
+    fetchVehiclesOnce()
+      .then((remoteVehicles) => {
+        if (!isMounted || !remoteVehicles || remoteVehicles.length === 0) return;
         setVehicles(remoteVehicles);
         saveStoredVehicles(remoteVehicles);
 
@@ -102,13 +104,14 @@ export default function App() {
           }
           return null;
         });
-      },
-      (err) => {
-        console.error('Firestore connection error:', err);
-      }
-    );
+      })
+      .catch((err) => {
+        console.warn('Firestore fetch notice (using local storage cache):', err);
+      });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   // Filtered vehicles

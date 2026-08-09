@@ -38,9 +38,78 @@ export const db = firebaseConfig.firestoreDatabaseId
 const VEHICLES_COLLECTION = 'vehicles';
 const META_DOC_REF = doc(db, '_meta', 'initialized');
 
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    operationType,
+    path
+  };
+  console.error('Firestore Error:', JSON.stringify(errInfo));
+  return errInfo;
+}
+
 /**
- * Subscribe to real-time updates for all vehicles in Firestore.
- * Seeds initial vehicles only once if the database was never initialized.
+ * Fetch all vehicles from Firestore ONCE when requested.
+ * Does not establish a continuous real-time listener, saving daily Firestore read quota.
+ */
+export async function fetchVehiclesOnce(): Promise<Vehicle[]> {
+  try {
+    const vehiclesRef = collection(db, VEHICLES_COLLECTION);
+    const snapshot = await getDocs(vehiclesRef);
+
+    if (snapshot.empty) {
+      try {
+        const metaSnap = await getDoc(META_DOC_REF);
+        if (!metaSnap.exists()) {
+          // Seed initial data to Firestore ONLY on very first initialization
+          const batch = writeBatch(db);
+          for (const vehicle of INITIAL_VEHICLES) {
+            const vehicleDocRef = doc(db, VEHICLES_COLLECTION, vehicle.id);
+            batch.set(vehicleDocRef, vehicle);
+          }
+          batch.set(META_DOC_REF, { initialized: true, timestamp: new Date().toISOString() });
+          await batch.commit();
+          return INITIAL_VEHICLES;
+        }
+      } catch (seedErr) {
+        handleFirestoreError(seedErr, OperationType.GET, '_meta/initialized');
+      }
+      return [];
+    }
+
+    const vehiclesList: Vehicle[] = [];
+    snapshot.forEach((docSnap) => {
+      vehiclesList.push(docSnap.data() as Vehicle);
+    });
+
+    vehiclesList.sort((a, b) =>
+      a.garageNumber.localeCompare(b.garageNumber, undefined, { numeric: true })
+    );
+
+    return vehiclesList;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.GET, VEHICLES_COLLECTION);
+    throw err;
+  }
+}
+
+/**
+ * Optional: Subscribe to real-time updates for all vehicles in Firestore.
  */
 export function subscribeToVehicles(
   onUpdate: (vehicles: Vehicle[]) => void,
@@ -50,48 +119,22 @@ export function subscribeToVehicles(
 
   const unsubscribe = onSnapshot(
     vehiclesRef,
-    async (snapshot) => {
+    (snapshot) => {
       if (snapshot.empty) {
-        try {
-          const metaSnap = await getDoc(META_DOC_REF);
-          if (!metaSnap.exists()) {
-            // Seed initial data to Firestore ONLY on very first initialization
-            const batch = writeBatch(db);
-            for (const vehicle of INITIAL_VEHICLES) {
-              const vehicleDocRef = doc(db, VEHICLES_COLLECTION, vehicle.id);
-              batch.set(vehicleDocRef, vehicle);
-            }
-            batch.set(META_DOC_REF, { initialized: true, timestamp: new Date().toISOString() });
-            await batch.commit();
-            onUpdate(INITIAL_VEHICLES);
-            return;
-          }
-        } catch (seedErr) {
-          console.error('Error checking meta doc:', seedErr);
-        }
-        // If meta doc exists (or error), empty snapshot means all vehicles were deleted
         onUpdate([]);
       } else {
-        // Ensure meta doc exists so future deletions know database was initialized
-        try {
-          getDoc(META_DOC_REF).then((metaSnap) => {
-            if (!metaSnap.exists()) {
-              setDoc(META_DOC_REF, { initialized: true, timestamp: new Date().toISOString() }).catch(() => {});
-            }
-          }).catch(() => {});
-        } catch (e) {}
-
         const vehiclesList: Vehicle[] = [];
         snapshot.forEach((docSnap) => {
           vehiclesList.push(docSnap.data() as Vehicle);
         });
-        // Sort by garage number
-        vehiclesList.sort((a, b) => a.garageNumber.localeCompare(b.garageNumber, undefined, { numeric: true }));
+        vehiclesList.sort((a, b) =>
+          a.garageNumber.localeCompare(b.garageNumber, undefined, { numeric: true })
+        );
         onUpdate(vehiclesList);
       }
     },
     (err) => {
-      console.error('Firestore subscription error:', err);
+      handleFirestoreError(err, OperationType.LIST, VEHICLES_COLLECTION);
       if (onError) onError(err);
     }
   );
@@ -107,7 +150,7 @@ export async function saveVehicleToFirestore(vehicle: Vehicle): Promise<void> {
     const vehicleDocRef = doc(db, VEHICLES_COLLECTION, vehicle.id);
     await setDoc(vehicleDocRef, vehicle);
   } catch (err) {
-    console.error('Failed to save vehicle to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, `${VEHICLES_COLLECTION}/${vehicle.id}`);
     throw err;
   }
 }
@@ -120,7 +163,7 @@ export async function deleteVehicleFromFirestore(vehicleId: string): Promise<voi
     const vehicleDocRef = doc(db, VEHICLES_COLLECTION, vehicleId);
     await deleteDoc(vehicleDocRef);
   } catch (err) {
-    console.error('Failed to delete vehicle from Firestore:', err);
+    handleFirestoreError(err, OperationType.DELETE, `${VEHICLES_COLLECTION}/${vehicleId}`);
     throw err;
   }
 }
@@ -137,7 +180,7 @@ export async function saveAllVehiclesToFirestore(vehicles: Vehicle[]): Promise<v
     }
     await batch.commit();
   } catch (err) {
-    console.error('Failed to save all vehicles to Firestore:', err);
+    handleFirestoreError(err, OperationType.WRITE, VEHICLES_COLLECTION);
     throw err;
   }
 }
