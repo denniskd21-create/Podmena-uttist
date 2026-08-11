@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Vehicle } from '../types';
 import { getSavedShiftForVehicle, saveShiftForVehicle } from '../lib/storage';
+import { formatPointCountdown } from '../lib/notifications';
 import {
   Clock,
   MapPin,
@@ -36,6 +37,15 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
     getSavedShiftForVehicle(vehicle.id)
   );
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [, setTick] = useState(0);
+
+  // 1-second interval live ticker for real-time second precision
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Sync saved shift when vehicle ID changes
   useEffect(() => {
@@ -81,8 +91,15 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
         : (vehicle.customerNotesShift2 || ''))
     : (vehicle.customerNotes || vehicle.customerNotesShift1);
 
-  // Helper to check point time status: 'passed' | 'upcoming_soon' (<=15 min) | 'future'
-  const getPointTimeStatus = (pointText: string): { status: 'passed' | 'upcoming_soon' | 'future'; minutesLeft?: number } => {
+  // Helper to check point time status: 'passed' | 'upcoming_soon' (<=15 min) | 'future' with second accuracy
+  const getPointTimeStatus = (
+    pointText: string
+  ): {
+    status: 'passed' | 'upcoming_soon' | 'future';
+    minutesLeft?: number;
+    diffSeconds?: number;
+    formattedTimeLeft?: string;
+  } => {
     if (!pointText) return { status: 'future' };
     const match = pointText.match(/^(\d{1,2})[:.](\d{2})/);
     if (!match) return { status: 'future' };
@@ -118,28 +135,41 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
     const retMins = parseMins(retStr) ?? 1080;
     const isOvernight = depMins > retMins;
 
-    let pShift = pMins;
+    let pShiftMins = pMins;
     if (isOvernight && pMins < depMins - 180) {
-      pShift = pMins + 1440;
+      pShiftMins = pMins + 1440;
     }
+    const pShiftSecs = pShiftMins * 60;
 
     const now = new Date();
     const nowMins = now.getHours() * 60 + now.getMinutes();
 
-    let nowShift = nowMins;
+    let nowShiftMins = nowMins;
     if (isOvernight && nowMins < retMins + 120) {
-      nowShift = nowMins + 1440;
+      nowShiftMins = nowMins + 1440;
     }
+    const nowShiftSecs = nowShiftMins * 60 + now.getSeconds();
 
-    const diff = pShift - nowShift;
+    const diffSeconds = pShiftSecs - nowShiftSecs;
+    const minutesLeft = Math.ceil(diffSeconds / 60);
 
-    if (diff < 0) {
+    if (diffSeconds <= 0) {
       return { status: 'passed' };
     }
-    if (diff >= 0 && diff <= 15) {
-      return { status: 'upcoming_soon', minutesLeft: diff };
+    if (diffSeconds <= 15 * 60) {
+      return {
+        status: 'upcoming_soon',
+        minutesLeft,
+        diffSeconds,
+        formattedTimeLeft: formatPointCountdown(diffSeconds),
+      };
     }
-    return { status: 'future', minutesLeft: diff };
+    return {
+      status: 'future',
+      minutesLeft,
+      diffSeconds,
+      formattedTimeLeft: formatPointCountdown(diffSeconds),
+    };
   };
 
   return (
@@ -366,7 +396,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
               {currentPickupPoints.map((point, index) => {
-                const { status, minutesLeft } = getPointTimeStatus(point);
+                const { status, formattedTimeLeft } = getPointTimeStatus(point);
                 const isPassed = status === 'passed';
                 const isUpcomingSoon = status === 'upcoming_soon';
 
@@ -398,9 +428,9 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
                       </span>
                     </div>
 
-                    {isUpcomingSoon && (
+                    {isUpcomingSoon && formattedTimeLeft && (
                       <span className="px-2 py-0.5 bg-amber-500 text-black font-black text-[10px] rounded-lg animate-pulse shrink-0 whitespace-nowrap mt-0.5">
-                        через {minutesLeft === 0 ? '1' : minutesLeft} мин
+                        {formattedTimeLeft}
                       </span>
                     )}
                   </div>

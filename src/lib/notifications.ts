@@ -37,7 +37,41 @@ export function saveNotificationSettings(settings: NotificationSettings) {
   }
 }
 
-// Track points already notified today to prevent duplicates
+export function getSecondsWord(secs: number): string {
+  const mod10 = secs % 10;
+  const mod100 = secs % 100;
+  if (mod100 >= 11 && mod100 <= 19) return 'секунд';
+  if (mod10 === 1) return 'секунда';
+  if (mod10 >= 2 && mod10 <= 4) return 'секунды';
+  return 'секунд';
+}
+
+/**
+ * Format countdown timer with exact rules:
+ * - >5 min (300s): "через X мин"
+ * - 1-5 min (60-300s): "M:SS мин" (e.g. 4:59 мин)
+ * - <1 min (<60s): "X секунда / секунды / секунд" (e.g. 59 секунд, 1 секунда)
+ */
+export function formatPointCountdown(diffSeconds: number): string {
+  if (diffSeconds <= 0) return '';
+
+  if (diffSeconds > 300) {
+    const mins = Math.ceil(diffSeconds / 60);
+    return `через ${mins} мин`;
+  } else if (diffSeconds >= 60) {
+    const mins = Math.floor(diffSeconds / 60);
+    const secs = diffSeconds % 60;
+    const ss = secs < 10 ? `0${secs}` : `${secs}`;
+    return `${mins}:${ss} мин`;
+  } else {
+    const word = getSecondsWord(diffSeconds);
+    return `${diffSeconds} ${word}`;
+  }
+}
+
+/**
+ * Track points already notified today to prevent duplicates
+ */
 function getNotifiedPointsToday(): Record<string, boolean> {
   try {
     const raw = localStorage.getItem(NOTIFIED_KEYS_KEY);
@@ -423,7 +457,7 @@ export function startBackgroundNotificationWorker(
           if (timer) clearInterval(timer);
           timer = setInterval(function() {
             self.postMessage('tick');
-          }, 2000);
+          }, 1000);
         } else if (e.data === 'stop') {
           if (timer) clearInterval(timer);
           timer = null;

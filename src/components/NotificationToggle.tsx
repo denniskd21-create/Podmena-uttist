@@ -10,6 +10,7 @@ import {
   playNotificationSound,
   extractVehicleTimePoints,
   checkVehicleNotifications,
+  formatPointCountdown,
   ParsedTimePoint
 } from '../lib/notifications';
 import { Vehicle } from '../types';
@@ -27,7 +28,7 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
     getNotificationPermissionState()
   );
   const [testSent, setTestSent] = useState(false);
-  const [upcomingPoint, setUpcomingPoint] = useState<{ point: ParsedTimePoint; minLeft: number } | null>(null);
+  const [upcomingPoint, setUpcomingPoint] = useState<{ point: ParsedTimePoint; minLeft: number; diffSeconds?: number } | null>(null);
 
   // Refresh permission & settings state on mount & periodically / on event
   useEffect(() => {
@@ -77,31 +78,39 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
       const res = checkVehicleNotifications(targetVehicle, currentSettings, effectiveShift);
 
       if (res.upcomingPoint && res.minutesLeft !== undefined) {
-        setUpcomingPoint({ point: res.upcomingPoint, minLeft: res.minutesLeft });
+        const now = new Date();
+        const currentMin = now.getHours() * 60 + now.getMinutes();
+        const currentSecs = currentMin * 60 + now.getSeconds();
+        const pSecs = res.upcomingPoint.minutesFromMidnight * 60;
+        const diffSecs = pSecs - currentSecs;
+        setUpcomingPoint({ point: res.upcomingPoint, minLeft: res.minutesLeft, diffSeconds: diffSecs > 0 ? diffSecs : 0 });
       } else {
         const points = extractVehicleTimePoints(targetVehicle, effectiveShift);
         if (points.length > 0) {
           const now = new Date();
           const currentMin = now.getHours() * 60 + now.getMinutes();
+          const currentSecs = currentMin * 60 + now.getSeconds();
           const firstPoint = points[0];
           const lastPoint = points[points.length - 1];
           const depMins = firstPoint.minutesFromMidnight;
           const retMins = lastPoint.minutesFromMidnight;
           const isOvernight = retMins > 1440 || depMins > 1000;
-          let effNow = currentMin;
+          let effNowSecs = currentSecs;
           if (isOvernight) {
             const retMinsDay = retMins > 1440 ? retMins - 1440 : retMins;
             if (currentMin < depMins - 180 && currentMin <= retMinsDay + 180) {
-              effNow = currentMin + 1440;
+              effNowSecs = currentSecs + 1440 * 60;
             }
           }
 
-          let found: { point: ParsedTimePoint; minLeft: number } | null = null;
+          let found: { point: ParsedTimePoint; minLeft: number; diffSeconds: number } | null = null;
           for (const p of points) {
-            const diff = p.minutesFromMidnight - effNow;
-            if (diff >= 0) {
-              if (!found || diff < found.minLeft) {
-                found = { point: p, minLeft: diff };
+            const pSecs = p.minutesFromMidnight * 60;
+            const diffSecs = pSecs - effNowSecs;
+            if (diffSecs >= 0) {
+              const diffMins = Math.ceil(diffSecs / 60);
+              if (!found || diffSecs < found.diffSeconds) {
+                found = { point: p, minLeft: diffMins, diffSeconds: diffSecs };
               }
             }
           }
@@ -334,7 +343,7 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
                           Следующая точка: {upcomingPoint.point.timeStr}
                         </span>
                         <span className="text-[11px] text-blue-300">
-                          {upcomingPoint.point.label} (через {upcomingPoint.minLeft} мин)
+                          {upcomingPoint.point.label} ({upcomingPoint.diffSeconds !== undefined ? formatPointCountdown(upcomingPoint.diffSeconds) : `через ${upcomingPoint.minLeft} мин`})
                         </span>
                       </div>
                     </div>
