@@ -279,30 +279,32 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
                 <div className="flex items-start gap-2 p-2 bg-rose-950/60 border border-rose-800/80 rounded-xl text-rose-300">
                   <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold block">Уведомления заблокированы браузером.</span>
+                    <span className="font-bold block">Уведомления заблокированы браузером</span>
                     <span className="text-[11px] text-rose-200">
-                      Нажмите на замочек или иконку настроек возле URL сайта в строке браузера и разрешите «Уведомления».
+                      Запрос разрешения отклонен или заблокирован в настройках браузера.
                     </span>
                   </div>
                 </div>
               ) : (
-                <div className="p-2 bg-amber-950/60 border border-amber-800/80 rounded-xl text-amber-300 space-y-1.5">
+                <div className="p-2.5 bg-amber-950/60 border border-amber-800/80 rounded-xl text-amber-300 space-y-2">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>Требуется подтверждение браузера</span>
+                    <span className="font-bold">Требуется подтверждение браузера</span>
                   </div>
                   <button
                     onClick={async () => {
                       const granted = await requestNotificationPermission();
-                      setPermission(getNotificationPermissionState());
+                      const currentPerm = getNotificationPermissionState();
+                      setPermission(currentPerm);
                       if (granted) {
                         const next = { ...settings, enabled: true };
                         setSettings(next);
                         saveNotificationSettings(next);
                       }
                     }}
-                    className="w-full py-1 px-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs rounded-lg transition-colors"
+                    className="w-full py-1.5 px-3 bg-amber-600 hover:bg-amber-500 active:scale-98 text-white font-bold text-xs rounded-lg transition-all shadow-md flex items-center justify-center gap-1.5"
                   >
+                    <BellRing className="w-3.5 h-3.5" />
                     Запросить разрешение
                   </button>
                 </div>

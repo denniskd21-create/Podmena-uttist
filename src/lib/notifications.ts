@@ -120,8 +120,20 @@ export async function requestNotificationPermission(): Promise<boolean> {
     return false;
   }
   try {
-    const permission = await Notification.requestPermission();
-    return permission === 'granted';
+    let perm: NotificationPermission = Notification.permission;
+    if (perm === 'default') {
+      try {
+        const promiseRes = Notification.requestPermission((result) => {
+          if (result) perm = result;
+        });
+        if (promiseRes && typeof promiseRes.then === 'function') {
+          perm = await promiseRes;
+        }
+      } catch (err) {
+        console.warn('Standard Notification.requestPermission failed, trying fallback', err);
+      }
+    }
+    return perm === 'granted';
   } catch (e) {
     console.error('Failed to request notification permission:', e);
     return false;

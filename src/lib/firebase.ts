@@ -8,7 +8,8 @@ import {
   deleteDoc,
   onSnapshot,
   getDocs,
-  writeBatch
+  writeBatch,
+  enableIndexedDbPersistence
 } from 'firebase/firestore';
 import { Vehicle } from '../types';
 import { INITIAL_VEHICLES } from '../data/mockVehicles';
@@ -34,6 +35,17 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 export const db = firebaseConfig.firestoreDatabaseId
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
+
+// Enable offline persistence (IndexedDB)
+if (typeof window !== 'undefined') {
+  enableIndexedDbPersistence(db).catch((err) => {
+    if (err.code === 'failed-precondition') {
+      console.warn('Firestore persistence failed: Multiple tabs open');
+    } else if (err.code === 'unimplemented') {
+      console.warn('Firestore persistence not supported by browser');
+    }
+  });
+}
 
 const VEHICLES_COLLECTION = 'vehicles';
 const META_DOC_REF = doc(db, '_meta', 'initialized');
