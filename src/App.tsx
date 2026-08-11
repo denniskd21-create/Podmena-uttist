@@ -23,6 +23,8 @@ import {
 import {
   getNotificationSettings,
   checkVehicleNotifications,
+  updateNotificationSchedule,
+  processNotificationSchedule,
   startBackgroundNotificationWorker
 } from './lib/notifications';
 import { Header } from './components/Header';
@@ -148,37 +150,26 @@ export default function App() {
     return null;
   }, [vehicles, selectedVehicleId, filteredVehicles]);
 
-  // Periodic background check for point notifications & Web Worker background ticker
+  // Sync notification schedule and run live background notification ticker
   useEffect(() => {
+    updateNotificationSchedule(vehicles, selectedVehicle?.id);
+
     startBackgroundNotificationWorker(() => ({
       selectedVehicle,
       allVehicles: vehicles
     }));
 
     const check = () => {
-      const settings = getNotificationSettings();
-      if (settings.enabled) {
-        const targetVehicles = selectedVehicle ? [selectedVehicle] : vehicles;
-        for (const v of targetVehicles) {
-          const activeShift =
-            v.shiftType === '2-сменка'
-              ? getSavedShiftForVehicle(v.id)
-              : undefined;
-          checkVehicleNotifications(v, settings, activeShift);
-        }
-      }
+      processNotificationSchedule();
     };
 
     check();
-    const timer = setInterval(check, 5000); // Check every 5 seconds
-
     const handleVisibilityChange = () => {
       check();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
-      clearInterval(timer);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [selectedVehicle, vehicles]);

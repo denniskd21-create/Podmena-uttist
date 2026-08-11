@@ -11,6 +11,8 @@ import {
   extractVehicleTimePoints,
   checkVehicleNotifications,
   formatPointCountdown,
+  getPointTargetTimestamp,
+  updateNotificationSchedule,
   ParsedTimePoint
 } from '../lib/notifications';
 import { Vehicle } from '../types';
@@ -68,68 +70,53 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
     }
 
     const checkUpcoming = () => {
-      const currentSettings = getNotificationSettings();
       const effectiveShift =
         activeShift ||
         (targetVehicle.shiftType === '2-сменка'
           ? getSavedShiftForVehicle(targetVehicle.id)
           : undefined);
 
-      const res = checkVehicleNotifications(targetVehicle, currentSettings, effectiveShift);
+      const points = extractVehicleTimePoints(targetVehicle, effectiveShift);
+      if (points.length === 0) {
+        setUpcomingPoint(null);
+        return;
+      }
 
-      if (res.upcomingPoint && res.minutesLeft !== undefined) {
-        const now = new Date();
-        const currentMin = now.getHours() * 60 + now.getMinutes();
-        const currentSecs = currentMin * 60 + now.getSeconds();
-        const pSecs = res.upcomingPoint.minutesFromMidnight * 60;
-        const diffSecs = pSecs - currentSecs;
-        setUpcomingPoint({ point: res.upcomingPoint, minLeft: res.minutesLeft, diffSeconds: diffSecs > 0 ? diffSecs : 0 });
-      } else {
-        const points = extractVehicleTimePoints(targetVehicle, effectiveShift);
-        if (points.length > 0) {
-          const now = new Date();
-          const currentMin = now.getHours() * 60 + now.getMinutes();
-          const currentSecs = currentMin * 60 + now.getSeconds();
-          const firstPoint = points[0];
-          const lastPoint = points[points.length - 1];
-          const depMins = firstPoint.minutesFromMidnight;
-          const retMins = lastPoint.minutesFromMidnight;
-          const isOvernight = retMins > 1440 || depMins > 1000;
-          let effNowSecs = currentSecs;
-          if (isOvernight) {
-            const retMinsDay = retMins > 1440 ? retMins - 1440 : retMins;
-            if (currentMin < depMins - 180 && currentMin <= retMinsDay + 180) {
-              effNowSecs = currentSecs + 1440 * 60;
-            }
-          }
+      const depMins = points[0].minutesFromMidnight;
+      const retMins = points[points.length - 1].minutesFromMidnight;
+      const now = new Date();
 
-          let found: { point: ParsedTimePoint; minLeft: number; diffSeconds: number } | null = null;
-          for (const p of points) {
-            const pSecs = p.minutesFromMidnight * 60;
-            const diffSecs = pSecs - effNowSecs;
-            if (diffSecs >= 0) {
-              const diffMins = Math.ceil(diffSecs / 60);
-              if (!found || diffSecs < found.diffSeconds) {
-                found = { point: p, minLeft: diffMins, diffSeconds: diffSecs };
-              }
-            }
+      let found: { point: ParsedTimePoint; minLeft: number; diffSeconds: number } | null = null;
+
+      for (const p of points) {
+        const targetTs = getPointTargetTimestamp(now, p.minutesFromMidnight, depMins, retMins);
+        const diffSecs = Math.floor((targetTs - now.getTime()) / 1000);
+
+        if (diffSecs > 0) {
+          const diffMins = Math.ceil(diffSecs / 60);
+          if (!found || diffSecs < found.diffSeconds) {
+            found = { point: p, minLeft: diffMins, diffSeconds: diffSecs };
           }
-          setUpcomingPoint(found);
-        } else {
-          setUpcomingPoint(null);
         }
       }
+
+      setUpcomingPoint(found);
     };
 
     checkUpcoming();
-    const interval = setInterval(checkUpcoming, 1000); // refresh every 1 second for live real-time countdown
+    const interval = setInterval(checkUpcoming, 1000);
 
-    const handleShiftChange = () => checkUpcoming();
-    window.addEventListener('vehicle_shift_changed', handleShiftChange);
+    window.addEventListener('podmena_second_tick', checkUpcoming);
+    window.addEventListener('podmena_notification_fired', checkUpcoming);
+    window.addEventListener('podmena_schedule_updated', checkUpcoming);
+    window.addEventListener('vehicle_shift_changed', checkUpcoming);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('vehicle_shift_changed', handleShiftChange);
+      window.removeEventListener('podmena_second_tick', checkUpcoming);
+      window.removeEventListener('podmena_notification_fired', checkUpcoming);
+      window.removeEventListener('podmena_schedule_updated', checkUpcoming);
+      window.removeEventListener('vehicle_shift_changed', checkUpcoming);
     };
   }, [selectedVehicle, activeShift]);
 

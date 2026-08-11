@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Vehicle } from '../types';
 import { getSavedShiftForVehicle, saveShiftForVehicle } from '../lib/storage';
-import { formatPointCountdown } from '../lib/notifications';
+import { formatPointCountdown, getPointTargetTimestamp } from '../lib/notifications';
 import {
   Clock,
   MapPin,
@@ -39,12 +39,19 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [, setTick] = useState(0);
 
-  // 1-second interval live ticker for real-time second precision
+  // 1-second interval live ticker & event subscription for real-time second precision
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTick((t) => t + 1);
-    }, 1000);
-    return () => clearInterval(timer);
+    const handleTick = () => setTick((t) => t + 1);
+    window.addEventListener('podmena_second_tick', handleTick);
+    window.addEventListener('podmena_notification_fired', handleTick);
+    window.addEventListener('podmena_schedule_updated', handleTick);
+    const timer = setInterval(handleTick, 1000);
+    return () => {
+      window.removeEventListener('podmena_second_tick', handleTick);
+      window.removeEventListener('podmena_notification_fired', handleTick);
+      window.removeEventListener('podmena_schedule_updated', handleTick);
+      clearInterval(timer);
+    };
   }, []);
 
   // Sync saved shift when vehicle ID changes
@@ -133,42 +140,31 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 
     const depMins = parseMins(depStr) ?? 360;
     const retMins = parseMins(retStr) ?? 1080;
-    const isOvernight = depMins > retMins;
-
-    let pShiftMins = pMins;
-    if (isOvernight && pMins < depMins - 180) {
-      pShiftMins = pMins + 1440;
-    }
-    const pShiftSecs = pShiftMins * 60;
 
     const now = new Date();
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-
-    let nowShiftMins = nowMins;
-    if (isOvernight && nowMins < retMins + 120) {
-      nowShiftMins = nowMins + 1440;
-    }
-    const nowShiftSecs = nowShiftMins * 60 + now.getSeconds();
-
-    const diffSeconds = pShiftSecs - nowShiftSecs;
-    const minutesLeft = Math.ceil(diffSeconds / 60);
+    const targetTs = getPointTargetTimestamp(now, pMins, depMins, retMins);
+    const diffSeconds = Math.floor((targetTs - now.getTime()) / 1000);
 
     if (diffSeconds <= 0) {
       return { status: 'passed' };
     }
+
+    const formattedTimeLeft = formatPointCountdown(diffSeconds);
+
     if (diffSeconds <= 15 * 60) {
       return {
         status: 'upcoming_soon',
-        minutesLeft,
+        minutesLeft: Math.ceil(diffSeconds / 60),
         diffSeconds,
-        formattedTimeLeft: formatPointCountdown(diffSeconds),
+        formattedTimeLeft,
       };
     }
+
     return {
       status: 'future',
-      minutesLeft,
+      minutesLeft: Math.ceil(diffSeconds / 60),
       diffSeconds,
-      formattedTimeLeft: formatPointCountdown(diffSeconds),
+      formattedTimeLeft,
     };
   };
 
