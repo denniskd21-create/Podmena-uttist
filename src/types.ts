@@ -20,6 +20,11 @@ export interface DriverNote {
   category?: 'нюанс' | 'неисправность' | 'заказчик' | 'пересмена';
 }
 
+export interface CustomerContactItem {
+  name: string;
+  phone: string;
+}
+
 export interface Vehicle {
   id: string;
   garageNumber: string; // e.g. "0142"
@@ -50,6 +55,9 @@ export interface Vehicle {
   customerName: string; // e.g. "УЭВП"
   customerContactName?: string;
   customerPhone?: string; // e.g. "+7 (34949) 6-22-14"
+  customerContact2Name?: string;
+  customerPhone2?: string;
+  customerContacts?: CustomerContactItem[];
   customerNotes?: string; // e.g. "Подняться в каб. 204, найти Иванова А.В., подписать путевой лист"
   customerNotesShift1?: string;
   customerNotesShift2?: string;

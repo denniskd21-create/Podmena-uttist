@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Vehicle, VehicleType, AutoColumn, ShiftType } from '../types';
-import { X, Save, Truck, Plus, Trash2, Users, Check } from 'lucide-react';
+import { X, Save, Truck, Plus, Trash2, Users, Check, User, Phone } from 'lucide-react';
 import {
   formatGarageNumber,
   formatLicensePlate,
@@ -61,6 +61,11 @@ interface CrewMemberItem {
   phone: string;
 }
 
+interface CustomerContactItem {
+  name: string;
+  phone: string;
+}
+
 export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
   isOpen,
   onClose,
@@ -95,8 +100,9 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
   const [shift2PickupPointsText, setShift2PickupPointsText] = useState('');
 
   const [customerName, setCustomerName] = useState('');
-  const [customerContactName, setCustomerContactName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerContacts, setCustomerContacts] = useState<CustomerContactItem[]>([
+    { name: '', phone: '' }
+  ]);
   const [customerNotes, setCustomerNotes] = useState('');
   const [customerNotesShift1, setCustomerNotesShift1] = useState('');
   const [customerNotesShift2, setCustomerNotesShift2] = useState('');
@@ -279,8 +285,32 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       setShift2PickupPointsText((initialVehicle.shift2PickupPoints || []).join('\n'));
 
       setCustomerName(initialVehicle.customerName || '');
-      setCustomerContactName(initialVehicle.customerContactName || '');
-      setCustomerPhone(formatPhoneNumber(initialVehicle.customerPhone || ''));
+      if (initialVehicle.customerContacts && initialVehicle.customerContacts.length > 0) {
+        setCustomerContacts(
+          initialVehicle.customerContacts.map((c) => ({
+            name: c.name || '',
+            phone: formatPhoneNumber(c.phone || '')
+          }))
+        );
+      } else {
+        const initialContacts: CustomerContactItem[] = [];
+        if (initialVehicle.customerContactName || initialVehicle.customerPhone) {
+          initialContacts.push({
+            name: initialVehicle.customerContactName || '',
+            phone: formatPhoneNumber(initialVehicle.customerPhone || '')
+          });
+        }
+        if (initialVehicle.customerContact2Name || initialVehicle.customerPhone2) {
+          initialContacts.push({
+            name: initialVehicle.customerContact2Name || '',
+            phone: formatPhoneNumber(initialVehicle.customerPhone2 || '')
+          });
+        }
+        if (initialContacts.length === 0) {
+          initialContacts.push({ name: '', phone: '' });
+        }
+        setCustomerContacts(initialContacts);
+      }
       setCustomerNotes(initialVehicle.customerNotes || '');
       setCustomerNotesShift1(initialVehicle.customerNotesShift1 || initialVehicle.customerNotes || '');
       setCustomerNotesShift2(initialVehicle.customerNotesShift2 || '');
@@ -328,8 +358,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       setShift1PickupPointsText('');
       setShift2PickupPointsText('');
       setCustomerName('');
-      setCustomerContactName('');
-      setCustomerPhone('');
+      setCustomerContacts([{ name: '', phone: '' }]);
       setCustomerNotes('');
       setCustomerNotesShift1('');
       setCustomerNotesShift2('');
@@ -363,6 +392,29 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       updated[index][field] = value;
     }
     setCrewMembers(updated);
+  };
+
+  const handleAddCustomerContact = () => {
+    if (customerContacts.length >= 4) return;
+    setCustomerContacts([...customerContacts, { name: '', phone: '' }]);
+  };
+
+  const handleRemoveCustomerContact = (index: number) => {
+    if (customerContacts.length <= 1) {
+      setCustomerContacts([{ name: '', phone: '' }]);
+    } else {
+      setCustomerContacts(customerContacts.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleCustomerContactChange = (index: number, field: keyof CustomerContactItem, value: string) => {
+    const updated = [...customerContacts];
+    if (field === 'phone') {
+      updated[index].phone = formatPhoneNumber(value);
+    } else {
+      updated[index][field] = value;
+    }
+    setCustomerContacts(updated);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -411,6 +463,10 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       }))
       .filter((m) => m.name.length > 0);
 
+    const validContacts = customerContacts.filter(
+      (c) => c.name.trim() !== '' || c.phone.trim() !== ''
+    );
+
     const updatedVehicle: Vehicle = {
       id: initialVehicle ? initialVehicle.id : 'veh-' + Date.now(),
       garageNumber: garageNumber.trim() || '—',
@@ -441,8 +497,14 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
       shift2PickupPoints: shift2PickupPoints,
 
       customerName: customerName.trim(),
-      customerContactName: customerContactName.trim(),
-      customerPhone: customerPhone.trim(),
+      customerContactName: validContacts[0]?.name.trim() || '',
+      customerPhone: validContacts[0]?.phone.trim() || '',
+      customerContact2Name: validContacts[1]?.name.trim() || '',
+      customerPhone2: validContacts[1]?.phone.trim() || '',
+      customerContacts: validContacts.map((c) => ({
+        name: c.name.trim(),
+        phone: c.phone.trim()
+      })),
       customerNotes: customerNotes.trim() || customerNotesShift1.trim(),
       customerNotesShift1: customerNotesShift1.trim(),
       customerNotesShift2: customerNotesShift2.trim(),
@@ -774,7 +836,7 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
 
           {/* Dynamic Crew Members Section - NO shift/role input as requested */}
           <div className="bg-[#14141A] p-4 rounded-xl border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
               <h3 className="font-bold text-white text-xs flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-blue-400" />
                 3. Водители ТС
@@ -783,9 +845,9 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                 <button
                   type="button"
                   onClick={handleAddCrewMember}
-                  className="px-2.5 py-1 bg-blue-950 hover:bg-blue-900 border border-blue-800 text-blue-300 font-bold rounded-lg text-[11px] flex items-center gap-1 transition-colors"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md shadow-blue-900/40 active:scale-95 shrink-0"
                 >
-                  <Plus className="w-3.5 h-3.5" />
+                  <Plus className="w-4 h-4 text-white" />
                   <span>Добавить водителя</span>
                 </button>
               )}
@@ -836,6 +898,17 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                   </div>
                 </div>
               ))}
+
+              {crewMembers.length < 4 && (
+                <button
+                  type="button"
+                  onClick={handleAddCrewMember}
+                  className="w-full py-2.5 px-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/60 hover:border-blue-400 text-blue-200 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.99] shadow-sm"
+                >
+                  <Plus className="w-4 h-4 text-blue-400" />
+                  <span>+ Добавить водителя</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -869,33 +942,85 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">
-                  Контактное лицо / Должность
-                </label>
-                <input
-                  type="text"
-                  placeholder="Диспетчер Петрова Е.В. / Мастер"
-                  value={customerContactName}
-                  onChange={(e) => setCustomerContactName(e.target.value)}
-                  className="w-full p-2 bg-[#1A1A22] border border-slate-700 rounded-lg text-white"
-                />
+            {/* Dynamic Customer Contacts Section - exactly like drivers */}
+            <div className="space-y-3 pt-3 border-t border-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                  <User className="w-4 h-4 text-blue-400" />
+                  Контактные лица заказчика
+                </span>
+                {customerContacts.length < 4 && (
+                  <button
+                    type="button"
+                    onClick={handleAddCustomerContact}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md shadow-blue-900/40 active:scale-95 shrink-0"
+                  >
+                    <Plus className="w-4 h-4 text-white" />
+                    <span>Добавить контактное лицо</span>
+                  </button>
+                )}
               </div>
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">
-                  Телефон контактного лица
-                </label>
-                <input
-                  type="text"
-                  placeholder="+7 (34949) 6-12-34"
-                  value={customerPhone}
-                  onFocus={() => {
-                    if (!customerPhone) setCustomerPhone('+7');
-                  }}
-                  onChange={(e) => setCustomerPhone(formatPhoneNumber(e.target.value))}
-                  className="w-full p-2 bg-[#1A1A22] border border-slate-700 rounded-lg font-mono text-white"
-                />
+
+              <div className="space-y-2.5">
+                {customerContacts.map((contact, idx) => (
+                  <div key={idx} className="bg-[#1A1A22] p-3 rounded-xl border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between text-slate-400 font-bold text-[11px]">
+                      <span>Контактное лицо #{idx + 1}</span>
+                      {customerContacts.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveCustomerContact(idx)}
+                          className="text-rose-400 hover:text-rose-300 p-0.5 rounded transition-colors"
+                          title="Удалить контактное лицо"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-slate-400 block mb-0.5">
+                          ФИО / Должность
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Диспетчер Петрова Е.В. / Мастер"
+                          value={contact.name}
+                          onChange={(e) => handleCustomerContactChange(idx, 'name', e.target.value)}
+                          className="w-full p-2 bg-[#0F0F12] border border-slate-700 rounded-lg text-white font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] text-slate-400 block mb-0.5">
+                          Телефон
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="+7 (34949) 6-12-34"
+                          value={contact.phone}
+                          onFocus={() => {
+                            if (!contact.phone) handleCustomerContactChange(idx, 'phone', '+7');
+                          }}
+                          onChange={(e) => handleCustomerContactChange(idx, 'phone', e.target.value)}
+                          className="w-full p-2 bg-[#0F0F12] border border-slate-700 rounded-lg font-mono text-white"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {customerContacts.length < 4 && (
+                  <button
+                    type="button"
+                    onClick={handleAddCustomerContact}
+                    className="w-full py-2.5 px-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/60 hover:border-blue-400 text-blue-200 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.99] shadow-sm"
+                  >
+                    <Plus className="w-4 h-4 text-blue-400" />
+                    <span>+ Добавить контактное лицо</span>
+                  </button>
+                )}
               </div>
             </div>
 

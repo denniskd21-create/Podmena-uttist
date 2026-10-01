@@ -37,8 +37,10 @@ export const INITIAL_VEHICLES: Vehicle[] = [
       '19:45 — ГП-3'
     ],
     customerName: 'УЭВП (Управление эксплуатации вахтовых поселков)',
-    customerContactName: 'Смирнов Андрей Петрович (Старший мастер)',
+    customerContactName: 'Смирнов Андрей Петрович (Старший мастер, вахта 1)',
     customerPhone: '+7 (34949) 6-22-14',
+    customerContact2Name: 'Кузнецов Сергей Иванович (Сменный мастер, вахта 2)',
+    customerPhone2: '+7 (34949) 6-22-15',
     mvzCode: '4502.12.01',
     mvzDescription: 'Перевозка вахтовых смен персонала ГП-2 и ГП-3',
     submissionLocation: 'Площадка ВП-4 Ямбург',

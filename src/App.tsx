@@ -126,6 +126,11 @@ export default function App() {
         v.licensePlate.toLowerCase().includes(q) ||
         v.brandModel.toLowerCase().includes(q) ||
         v.customerName.toLowerCase().includes(q) ||
+        (v.customerContactName && v.customerContactName.toLowerCase().includes(q)) ||
+        (v.customerContact2Name && v.customerContact2Name.toLowerCase().includes(q)) ||
+        (v.customerPhone && v.customerPhone.toLowerCase().includes(q)) ||
+        (v.customerPhone2 && v.customerPhone2.toLowerCase().includes(q)) ||
+        (v.customerContacts && v.customerContacts.some((c) => c.name.toLowerCase().includes(q) || c.phone.toLowerCase().includes(q))) ||
         v.mvzCode.toLowerCase().includes(q) ||
         (v.mvzDescription && v.mvzDescription.toLowerCase().includes(q));
 
