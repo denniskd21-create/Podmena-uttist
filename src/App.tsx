@@ -32,6 +32,8 @@ import { SearchPad } from './components/SearchPad';
 import { VehicleList } from './components/VehicleList';
 import { VehicleEditModal } from './components/VehicleEditModal';
 import { AddNoteModal } from './components/AddNoteModal';
+import { ChangelogModal } from './components/ChangelogModal';
+import { APP_VERSION } from './version';
 import { Truck, Plus } from 'lucide-react';
 
 export default function App() {
@@ -48,6 +50,8 @@ export default function App() {
 
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   const [vehicleForNote, setVehicleForNote] = useState<Vehicle | null>(null);
+
+  const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 
   // Load state on mount and subscribe to Firestore real-time updates
   useEffect(() => {
@@ -380,10 +384,20 @@ export default function App() {
 
       {/* Footer */}
       <footer className="bg-[#070708] text-slate-400 text-xs py-5 border-t border-slate-800/80">
-        <div className="max-w-7xl mx-auto px-4 text-center space-y-1">
+        <div className="max-w-7xl mx-auto px-4 text-center space-y-1.5">
           <p className="font-semibold text-slate-300">
             УТТиСТ ООО «Газпром добыча Ямбург» — Электронный справочник экипажей и техники
           </p>
+          <div>
+            <button
+              type="button"
+              onClick={() => setIsChangelogOpen(true)}
+              className="text-[11px] text-slate-500 hover:text-blue-400 font-mono transition-colors underline decoration-slate-700 hover:decoration-blue-400 cursor-pointer inline-flex items-center gap-1 active:scale-95"
+              title="Нажмите, чтобы открыть историю изменений"
+            >
+              версия {APP_VERSION}
+            </button>
+          </div>
         </div>
       </footer>
 
@@ -401,6 +415,11 @@ export default function App() {
         onClose={() => setIsNoteModalOpen(false)}
         vehicle={vehicleForNote}
         onSaveNote={handleSaveNote}
+      />
+
+      <ChangelogModal
+        isOpen={isChangelogOpen}
+        onClose={() => setIsChangelogOpen(false)}
       />
     </div>
   );

@@ -367,21 +367,10 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
           {/* BLOCK 3: CUSTOMER */}
           <div className="bg-[#14141A] border border-slate-800 rounded-2xl p-4 space-y-2 flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between gap-1 mb-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                  <Building className="w-3.5 h-3.5 text-blue-400" />
-                  Заказчик и Подача
-                </span>
-                <button
-                  type="button"
-                  onClick={() => onEdit(vehicle)}
-                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all active:scale-95 shadow-sm"
-                  title="Добавить контактное лицо"
-                >
-                  <Plus className="w-3.5 h-3.5 text-white" />
-                  <span>Добавить контакт</span>
-                </button>
-              </div>
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block flex items-center gap-1 mb-1">
+                <Building className="w-3.5 h-3.5 text-blue-400" />
+                Заказчик и Подача
+              </span>
               <div className="mt-1 space-y-1 text-xs">
                 <div className="bg-[#1A1A22] p-2 rounded-xl border border-slate-800">
                   <span className="text-slate-400 block text-[10px]">Заказчик:</span>
@@ -407,42 +396,35 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
               </div>
             </div>
             {/* Contacts & Call buttons */}
-            <div className="mt-2 space-y-1.5">
-              {customerContactsList.map((contact, idx) => (
-                contact.phone ? (
-                  <a
-                    key={idx}
-                    href={`tel:${contact.phone}`}
-                    className="w-full py-2 px-3 bg-blue-950/80 hover:bg-blue-900 border border-blue-800 text-blue-200 rounded-xl font-bold text-xs flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 transition-colors text-center leading-snug shadow-sm active:scale-[0.99]"
-                    title={`Позвонить контактному лицу: ${contact.name || contact.phone}`}
-                  >
-                    <Phone className="w-3.5 h-3.5 shrink-0 text-blue-400" />
-                    <span className="break-words">
-                      {contact.name ? `${contact.name}:` : `Контакт #${idx + 1}:`}
-                    </span>
-                    <span className="whitespace-nowrap font-mono">{contact.phone}</span>
-                  </a>
-                ) : contact.name ? (
-                  <div
-                    key={idx}
-                    className="py-1.5 px-3 bg-[#1A1A22] border border-slate-800 text-slate-300 rounded-xl text-xs flex items-center gap-2"
-                  >
-                    <User className="w-3.5 h-3.5 shrink-0 text-blue-400" />
-                    <span className="font-semibold text-slate-400">{`Контакт #${idx + 1}:`}</span>
-                    <span className="font-medium text-white truncate">{contact.name}</span>
-                  </div>
-                ) : null
-              ))}
-
-              <button
-                type="button"
-                onClick={() => onEdit(vehicle)}
-                className="w-full py-2 px-2.5 bg-blue-950/40 hover:bg-blue-900/60 border border-dashed border-blue-700/70 hover:border-blue-500 text-blue-300 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all active:scale-[0.99]"
-              >
-                <Plus className="w-3.5 h-3.5 text-blue-400" />
-                <span>+ Добавить контактное лицо</span>
-              </button>
-            </div>
+            {customerContactsList.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {customerContactsList.map((contact, idx) => (
+                  contact.phone ? (
+                    <a
+                      key={idx}
+                      href={`tel:${contact.phone}`}
+                      className="w-full py-2 px-3 bg-blue-950/80 hover:bg-blue-900 border border-blue-800 text-blue-200 rounded-xl font-bold text-xs flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 transition-colors text-center leading-snug shadow-sm active:scale-[0.99]"
+                      title={`Позвонить контактному лицу: ${contact.name || contact.phone}`}
+                    >
+                      <Phone className="w-3.5 h-3.5 shrink-0 text-blue-400" />
+                      <span className="break-words">
+                        {contact.name ? `${contact.name}:` : `Контакт #${idx + 1}:`}
+                      </span>
+                      <span className="whitespace-nowrap font-mono">{contact.phone}</span>
+                    </a>
+                  ) : contact.name ? (
+                    <div
+                      key={idx}
+                      className="py-1.5 px-3 bg-[#1A1A22] border border-slate-800 text-slate-300 rounded-xl text-xs flex items-center gap-2"
+                    >
+                      <User className="w-3.5 h-3.5 shrink-0 text-blue-400" />
+                      <span className="font-semibold text-slate-400">{`Контакт #${idx + 1}:`}</span>
+                      <span className="font-medium text-white truncate">{contact.name}</span>
+                    </div>
+                  ) : null
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

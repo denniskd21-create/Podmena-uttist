@@ -898,23 +898,25 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                   </div>
                 </div>
               ))}
-
-              {crewMembers.length < 4 && (
-                <button
-                  type="button"
-                  onClick={handleAddCrewMember}
-                  className="w-full py-2.5 px-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/60 hover:border-blue-400 text-blue-200 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.99] shadow-sm"
-                >
-                  <Plus className="w-4 h-4 text-blue-400" />
-                  <span>+ Добавить водителя</span>
-                </button>
-              )}
             </div>
           </div>
 
           {/* Customer & MVZ */}
           <div className="bg-[#14141A] p-4 rounded-xl border border-slate-800 space-y-3">
-            <h3 className="font-bold text-white text-xs">4. Заказчик и Код МВЗ</h3>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+              <h3 className="font-bold text-white text-xs">4. Заказчик и Код МВЗ</h3>
+              {customerContacts.length < 4 && (
+                <button
+                  type="button"
+                  onClick={handleAddCustomerContact}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md shadow-blue-900/40 active:scale-95 shrink-0"
+                >
+                  <Plus className="w-4 h-4 text-white" />
+                  <span>Добавить контактное лицо</span>
+                </button>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block font-semibold text-slate-300 mb-1">Заказчик</label>
@@ -942,23 +944,13 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
               </div>
             </div>
 
-            {/* Dynamic Customer Contacts Section - exactly like drivers */}
+            {/* Dynamic Customer Contacts Section */}
             <div className="space-y-3 pt-3 border-t border-slate-800">
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center justify-between">
                 <span className="font-bold text-white text-xs flex items-center gap-1.5">
                   <User className="w-4 h-4 text-blue-400" />
                   Контактные лица заказчика
                 </span>
-                {customerContacts.length < 4 && (
-                  <button
-                    type="button"
-                    onClick={handleAddCustomerContact}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-md shadow-blue-900/40 active:scale-95 shrink-0"
-                  >
-                    <Plus className="w-4 h-4 text-white" />
-                    <span>Добавить контактное лицо</span>
-                  </button>
-                )}
               </div>
 
               <div className="space-y-2.5">
@@ -1010,17 +1002,6 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                     </div>
                   </div>
                 ))}
-
-                {customerContacts.length < 4 && (
-                  <button
-                    type="button"
-                    onClick={handleAddCustomerContact}
-                    className="w-full py-2.5 px-3 bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/60 hover:border-blue-400 text-blue-200 hover:text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.99] shadow-sm"
-                  >
-                    <Plus className="w-4 h-4 text-blue-400" />
-                    <span>+ Добавить контактное лицо</span>
-                  </button>
-                )}
               </div>
             </div>
 
