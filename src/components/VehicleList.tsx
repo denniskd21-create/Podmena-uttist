@@ -8,6 +8,7 @@ interface VehicleListProps {
   vehicles: Vehicle[];
   selectedVehicleId: string | null;
   onSelectVehicle: (id: string) => void;
+  onShowAllVehicles?: () => void;
   searchTerm: string;
   selectedColumn: string;
   onSelectColumn: (col: string) => void;
@@ -29,6 +30,7 @@ export const VehicleList: React.FC<VehicleListProps> = ({
   vehicles,
   selectedVehicleId,
   onSelectVehicle,
+  onShowAllVehicles,
   searchTerm,
   selectedColumn,
   onSelectColumn,
@@ -111,10 +113,14 @@ export const VehicleList: React.FC<VehicleListProps> = ({
           </span>
           <button
             onClick={() => {
-              onSelectVehicle('');
+              if (onShowAllVehicles) {
+                onShowAllVehicles();
+              } else {
+                onSelectVehicle('');
+              }
               setShowAllGrid(true);
             }}
-            className="text-xs text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1 bg-[#14141A] px-3 py-1.5 rounded-xl border border-slate-800 transition-colors"
+            className="text-xs text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1 bg-[#14141A] px-3 py-1.5 rounded-xl border border-slate-800 transition-colors cursor-pointer"
           >
             <span>Показать список всех автомобилей ({allVehiclesCount})</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -145,8 +151,13 @@ export const VehicleList: React.FC<VehicleListProps> = ({
           Введите гаражный номер в поле поиска выше, чтобы открыть карточку автомобиля, или нажмите кнопку ниже для просмотра списка.
         </p>
         <button
-          onClick={() => setShowAllGrid(true)}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-2 shadow-lg shadow-blue-600/20"
+          onClick={() => {
+            if (onShowAllVehicles) {
+              onShowAllVehicles();
+            }
+            setShowAllGrid(true);
+          }}
+          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-2 shadow-lg shadow-blue-600/20 cursor-pointer"
         >
           <span>Показать список всех автомобилей ({allVehiclesCount})</span>
           <ArrowRight className="w-4 h-4" />

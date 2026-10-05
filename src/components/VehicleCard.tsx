@@ -15,7 +15,9 @@ import {
   ShieldAlert,
   FileText,
   User,
-  Plus
+  Plus,
+  Share2,
+  Check
 } from 'lucide-react';
 
 interface VehicleCardProps {
@@ -39,6 +41,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
     getSavedShiftForVehicle(vehicle.id)
   );
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [isSharedCopied, setIsSharedCopied] = useState(false);
   const [, setTick] = useState(0);
 
   // 1-second interval live ticker & event subscription for real-time second precision
@@ -82,6 +85,45 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   const handleDeleteConfirm = () => {
     setShowConfirmDelete(false);
     onDeleteVehicle(vehicle.id);
+  };
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}${window.location.pathname}#${vehicle.garageNumber}`;
+    const shareTitle = `УТТиСТ Подменный Водитель — ТС ${vehicle.garageNumber}`;
+    const shareText = `Автомобиль ${vehicle.brandModel} (гар. № ${vehicle.garageNumber}, гос. ${vehicle.licensePlate}), Колонна ${vehicle.autoColumn}, Заказчик: ${vehicle.customerName}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+        setIsSharedCopied(true);
+        setTimeout(() => setIsSharedCopied(false), 2500);
+        return;
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
+      }
+    }
+
+    // Fallback: Copy to clipboard
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = shareUrl;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setIsSharedCopied(true);
+      setTimeout(() => setIsSharedCopied(false), 2500);
+    } catch (e) {
+      console.error('Failed to copy share link', e);
+    }
   };
 
   const isTwoShift = vehicle.shiftType === '2-сменка';
@@ -225,6 +267,24 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 pt-2 sm:pt-0 border-t sm:border-0 border-slate-800 flex-wrap">
+          <button
+            type="button"
+            onClick={handleShare}
+            className={`px-3 py-1.5 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${
+              isSharedCopied
+                ? 'bg-emerald-600 text-white ring-2 ring-emerald-400/50'
+                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/20'
+            }`}
+            title="Поделиться прямой ссылкой на этот автомобиль"
+          >
+            {isSharedCopied ? (
+              <Check className="w-4 h-4 text-white" />
+            ) : (
+              <Share2 className="w-4 h-4 text-white" />
+            )}
+            <span>{isSharedCopied ? 'Ссылка скопирована!' : 'Поделиться'}</span>
+          </button>
+
           <button
             onClick={() => onAddNote(vehicle)}
             className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm"

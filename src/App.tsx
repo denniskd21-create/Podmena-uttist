@@ -53,6 +53,23 @@ export default function App() {
 
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 
+  // Helper to extract requested garage number from URL hash or query params (e.g. /#1129 or ?g=1129)
+  const getGarageFromUrl = (): string => {
+    // 1. Check hash e.g. #1129, #/1129, #garage=1129, #g=1129
+    const rawHash = window.location.hash.replace(/^#\/?/, '').trim();
+    if (rawHash) {
+      if (rawHash.startsWith('garage=')) return decodeURIComponent(rawHash.replace('garage=', ''));
+      if (rawHash.startsWith('g=')) return decodeURIComponent(rawHash.replace('g=', ''));
+      return decodeURIComponent(rawHash);
+    }
+    // 2. Check query params e.g. ?garage=1129 or ?g=1129
+    const params = new URLSearchParams(window.location.search);
+    const qParam = params.get('garage') || params.get('g');
+    if (qParam) return qParam.trim();
+
+    return '';
+  };
+
   // Load state on mount and subscribe to Firestore real-time updates
   useEffect(() => {
     // Fast initial load from local storage
@@ -60,25 +77,40 @@ export default function App() {
     setVehicles(loaded);
     setRecentGarageNumbers(getRecentGarageNumbers());
 
+    const urlGarage = getGarageFromUrl();
     const savedLastSearch = getLastSearchTerm();
     const savedLastVehId = getLastVehicleId();
 
-    if (savedLastSearch) {
-      setSearchTerm(savedLastSearch);
-    }
-
-    if (savedLastVehId && loaded.some((v) => v.id === savedLastVehId)) {
-      setSelectedVehicleId(savedLastVehId);
-    } else if (savedLastSearch) {
+    if (urlGarage) {
       const match = loaded.find(
         (v) =>
-          v.garageNumber.toLowerCase() === savedLastSearch.toLowerCase() ||
-          v.garageNumber.toLowerCase().includes(savedLastSearch.toLowerCase())
+          v.garageNumber.toLowerCase() === urlGarage.toLowerCase() ||
+          v.id.toLowerCase() === urlGarage.toLowerCase()
       );
-      if (match) setSelectedVehicleId(match.id);
-      else setSelectedVehicleId(null);
+      if (match) {
+        setSelectedVehicleId(match.id);
+        setSearchTerm(match.garageNumber);
+      } else {
+        setSearchTerm(urlGarage);
+      }
     } else {
-      setSelectedVehicleId(null);
+      if (savedLastSearch) {
+        setSearchTerm(savedLastSearch);
+      }
+
+      if (savedLastVehId && loaded.some((v) => v.id === savedLastVehId)) {
+        setSelectedVehicleId(savedLastVehId);
+      } else if (savedLastSearch) {
+        const match = loaded.find(
+          (v) =>
+            v.garageNumber.toLowerCase() === savedLastSearch.toLowerCase() ||
+            v.garageNumber.toLowerCase().includes(savedLastSearch.toLowerCase())
+        );
+        if (match) setSelectedVehicleId(match.id);
+        else setSelectedVehicleId(null);
+      } else {
+        setSelectedVehicleId(null);
+      }
     }
 
     // Fetch from Firestore once on screen load (single request, no infinite background listener loop)
@@ -88,6 +120,20 @@ export default function App() {
         if (!isMounted || !remoteVehicles || remoteVehicles.length === 0) return;
         setVehicles(remoteVehicles);
         saveStoredVehicles(remoteVehicles);
+
+        const currentUrlGarage = getGarageFromUrl();
+        if (currentUrlGarage) {
+          const urlMatch = remoteVehicles.find(
+            (v) =>
+              v.garageNumber.toLowerCase() === currentUrlGarage.toLowerCase() ||
+              v.id.toLowerCase() === currentUrlGarage.toLowerCase()
+          );
+          if (urlMatch) {
+            setSelectedVehicleId(urlMatch.id);
+            setSearchTerm(urlMatch.garageNumber);
+            return;
+          }
+        }
 
         // Keep selection valid
         setSelectedVehicleId((currentId) => {
@@ -119,6 +165,28 @@ export default function App() {
       isMounted = false;
     };
   }, []);
+
+  // Sync selection when browser URL hash changes (e.g. user clicks another direct link or navigates back/forward)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const urlGarage = getGarageFromUrl();
+      if (!urlGarage) return;
+      const target = vehicles.find(
+        (v) =>
+          v.garageNumber.toLowerCase() === urlGarage.toLowerCase() ||
+          v.id.toLowerCase() === urlGarage.toLowerCase()
+      );
+      if (target) {
+        setSelectedVehicleId(target.id);
+        saveLastVehicleId(target.id);
+        setSearchTerm(target.garageNumber);
+        saveLastSearchTerm(target.garageNumber);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [vehicles]);
 
   // Filtered vehicles
   const filteredVehicles = useMemo(() => {
@@ -200,12 +268,38 @@ export default function App() {
       if (match) {
         setSelectedVehicleId(match.id);
         saveLastVehicleId(match.id);
+        window.history.replaceState(
+          null,
+          '',
+          `${window.location.pathname}${window.location.search}#${match.garageNumber}`
+        );
       }
+    } else {
+      if (window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      }
+    }
+  };
+
+  // Show all vehicles & clear search input completely
+  const handleShowAllVehicles = () => {
+    setSearchTerm('');
+    saveLastSearchTerm('');
+    setSelectedVehicleId(null);
+    saveLastVehicleId('');
+    setSelectedColumn('Все');
+    setSelectedShift('Все смены');
+    if (window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
     }
   };
 
   // Select vehicle handler
   const handleSelectVehicle = (id: string) => {
+    if (!id) {
+      handleShowAllVehicles();
+      return;
+    }
     setSelectedVehicleId(id);
     saveLastVehicleId(id);
     const target = vehicles.find((v) => v.id === id);
@@ -213,6 +307,11 @@ export default function App() {
       addRecentGarageNumber(target.garageNumber);
       setRecentGarageNumbers(getRecentGarageNumbers());
       saveLastSearchTerm(target.garageNumber);
+      window.history.replaceState(
+        null,
+        '',
+        `${window.location.pathname}${window.location.search}#${target.garageNumber}`
+      );
     }
   };
 
@@ -223,6 +322,11 @@ export default function App() {
     if (target) {
       setSelectedVehicleId(target.id);
       saveLastVehicleId(target.id);
+      window.history.replaceState(
+        null,
+        '',
+        `${window.location.pathname}${window.location.search}#${target.garageNumber}`
+      );
     }
   };
 
@@ -362,6 +466,7 @@ export default function App() {
           vehicles={filteredVehicles}
           selectedVehicleId={selectedVehicleId}
           onSelectVehicle={handleSelectVehicle}
+          onShowAllVehicles={handleShowAllVehicles}
           searchTerm={searchTerm}
           selectedColumn={selectedColumn}
           onSelectColumn={setSelectedColumn}
