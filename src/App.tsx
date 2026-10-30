@@ -491,7 +491,7 @@ export default function App() {
       <footer className="bg-[#070708] text-slate-400 text-xs py-5 border-t border-slate-800/80">
         <div className="max-w-7xl mx-auto px-4 text-center space-y-1.5">
           <p className="font-semibold text-slate-300">
-            УТТиСТ ООО «Газпром добыча Ямбург» — Электронный справочник экипажей и техники
+            УТТиСТ — Электронный справочник экипажей и техники
           </p>
           <div>
             <button

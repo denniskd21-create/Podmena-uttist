@@ -17,7 +17,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     shift2Departure: '18:00',
     shift2Return: '06:00',
     shift2Driver: 'Ковалев Дмитрий Васильевич',
-    parkingSpot: 'Стоянка АК №1, Бокс №4 (Ямбург)',
+    parkingSpot: 'Стоянка АК №1, Бокс №4',
     pickupPoints: [
       '06:30 — ВП-4 (У столовой)',
       '06:45 — ВП-3 (Главные ворота)',
@@ -43,7 +43,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     customerPhone2: '+7 (34949) 6-22-15',
     mvzCode: '4502.12.01',
     mvzDescription: 'Перевозка вахтовых смен персонала ГП-2 и ГП-3',
-    submissionLocation: 'Площадка ВП-4 Ямбург',
+    submissionLocation: 'Площадка ВП-4',
     techNuances: [
       'Вторая передача включается с небольшим усилием',
       'Обогреватель салона (Webasto) запускается тумблером слева от руля',
@@ -187,7 +187,7 @@ export const INITIAL_VEHICLES: Vehicle[] = [
     customerPhone: '+7 (34949) 6-33-88',
     mvzCode: '5504.03.11',
     mvzDescription: 'Доставка запчастей и расходных материалов',
-    submissionLocation: 'Склад УМТС и К Ямбург',
+    submissionLocation: 'Склад УМТС и К',
     techNuances: [
       'Тент расшнуровывается с правого бока',
       'Тахограф требует личную карту водителя SKZI!'
