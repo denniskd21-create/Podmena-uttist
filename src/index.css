@@ -1,11 +1,134 @@
 @import "tailwindcss";
 
 @layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
   body {
     background-color: #0A0A0B;
     color: #e2e8f0;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    overflow-x: hidden;
   }
+}
+
+/* Global smooth transitions for buttons, inputs, links and interactive cards */
+button, a, input, select, textarea {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  transition-duration: 280ms;
+}
+
+/* 3D Vertical Axis 1 Full Turn (0deg -> 360deg) for Splash Logo */
+@keyframes splashFullTurn {
+  0% {
+    transform: perspective(1000px) rotateY(0deg) scale(0.95);
+    filter: drop-shadow(0 0 20px rgba(59, 130, 246, 0.35)) drop-shadow(0 15px 30px rgba(0, 0, 0, 0.8));
+  }
+  25% {
+    transform: perspective(1000px) rotateY(90deg) scale(1.02);
+    filter: drop-shadow(0 0 28px rgba(96, 165, 250, 0.5)) drop-shadow(0 18px 38px rgba(0, 0, 0, 0.8));
+  }
+  50% {
+    transform: perspective(1000px) rotateY(180deg) scale(1.06);
+    filter: drop-shadow(0 0 42px rgba(96, 165, 250, 0.7)) drop-shadow(0 22px 48px rgba(0, 0, 0, 0.8));
+  }
+  75% {
+    transform: perspective(1000px) rotateY(270deg) scale(1.02);
+    filter: drop-shadow(0 0 28px rgba(96, 165, 250, 0.5)) drop-shadow(0 18px 38px rgba(0, 0, 0, 0.8));
+  }
+  100% {
+    transform: perspective(1000px) rotateY(360deg) scale(1);
+    filter: drop-shadow(0 0 25px rgba(59, 130, 246, 0.4)) drop-shadow(0 15px 35px rgba(0, 0, 0, 0.8));
+  }
+}
+
+/* Gentle ambient breathing pulse */
+@keyframes splashGlowPulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.18);
+  }
+}
+
+/* Card Morph Expansion & Transitions (graceful & slower) */
+@keyframes cardMorphExpand {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(22px);
+    filter: blur(5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes shiftCrossfade {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth fade-in & morph animation for cards & containers */
+@keyframes fadeInSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-splash-360 {
+  animation: splashFullTurn 2.6s cubic-bezier(0.35, 0, 0.25, 1) forwards;
+  transform-style: preserve-3d;
+  will-change: transform, filter;
+}
+
+.animate-splash-glow {
+  animation: splashGlowPulse 4s ease-in-out infinite;
+}
+
+.animate-card-morph {
+  animation: cardMorphExpand 0.65s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: center top;
+}
+
+.animate-shift-crossfade {
+  animation: shiftCrossfade 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInSlideUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in-scale {
+  animation: fadeInScale 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Dark theme scrollbar */

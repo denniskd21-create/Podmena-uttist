@@ -7,12 +7,14 @@ interface HeaderProps {
   onOpenAddModal: () => void;
   totalVehiclesCount: number;
   selectedVehicle: Vehicle | null;
+  onReplaySplash?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenAddModal,
   totalVehiclesCount,
-  selectedVehicle
+  selectedVehicle,
+  onReplaySplash
 }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -69,14 +71,19 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="bg-[#0A0A0D] border-b border-slate-800 text-white sticky top-0 z-30 shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center justify-between gap-3">
         {/* Logo & Title */}
-        <div className="flex items-center space-x-2.5">
+        <div
+          onClick={onReplaySplash}
+          className={`flex items-center space-x-2.5 ${onReplaySplash ? 'cursor-pointer group select-none' : ''}`}
+          title={onReplaySplash ? 'Нажмите, чтобы открыть заставку' : undefined}
+        >
           <img
+            id="header-app-logo"
             src="/logo.webp"
             alt="Подмена"
-            className="w-9 h-9 object-contain shrink-0"
+            className="w-9 h-9 object-contain shrink-0 transition-transform duration-300 group-hover:scale-105 active:scale-95"
           />
           <div>
-            <h1 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight">
+            <h1 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight group-hover:text-blue-300 transition-colors">
               Подмена
             </h1>
             <p className="text-[10px] text-slate-400 hidden sm:block">

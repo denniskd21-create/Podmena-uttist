@@ -106,7 +106,7 @@ export const VehicleList: React.FC<VehicleListProps> = ({
   // If a single vehicle is selected by user search or click
   if (selectedVehicle) {
     return (
-      <div className="space-y-3">
+      <div className="space-y-3 animate-card-morph">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
             Выбранный автомобиль:
@@ -142,7 +142,7 @@ export const VehicleList: React.FC<VehicleListProps> = ({
   // If no search term and user hasn't toggled "Show All", show clean empty state
   if (!searchTerm && !showAllGrid && selectedColumn === 'Все' && selectedShift === 'Все смены') {
     return (
-      <div className="bg-[#0F0F12] rounded-2xl border border-slate-800 p-8 text-center shadow-xl my-4">
+      <div className="bg-[#0F0F12] rounded-2xl border border-slate-800 p-8 text-center shadow-xl my-4 animate-fade-in-up">
         <div className="w-12 h-12 bg-[#16161D] rounded-full flex items-center justify-center mx-auto text-blue-400 mb-3 border border-slate-800">
           <Truck className="w-6 h-6" />
         </div>
@@ -157,7 +157,7 @@ export const VehicleList: React.FC<VehicleListProps> = ({
             }
             setShowAllGrid(true);
           }}
-          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-2 shadow-lg shadow-blue-600/20 cursor-pointer"
+          className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all duration-300 hover:scale-[1.02] inline-flex items-center gap-2 shadow-lg shadow-blue-600/20 cursor-pointer"
         >
           <span>Показать список всех автомобилей ({allVehiclesCount})</span>
           <ArrowRight className="w-4 h-4" />
@@ -168,7 +168,7 @@ export const VehicleList: React.FC<VehicleListProps> = ({
 
   // Render list view with column/shift filters
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in-up">
       {/* Filters (Shown only when viewing all vehicles list) */}
       {renderFilterBar()}
 
@@ -188,7 +188,7 @@ export const VehicleList: React.FC<VehicleListProps> = ({
             <div
               key={v.id}
               onClick={() => onSelectVehicle(v.id)}
-              className="bg-[#0F0F12] rounded-2xl border border-slate-800 hover:border-blue-500/80 shadow-lg hover:shadow-blue-500/10 transition-all p-4 cursor-pointer flex flex-col justify-between group"
+              className="bg-[#0F0F12] rounded-2xl border border-slate-800 hover:border-blue-500/80 shadow-lg hover:shadow-blue-500/20 transition-all duration-300 hover:-translate-y-1 active:scale-[0.99] p-4 cursor-pointer flex flex-col justify-between group"
             >
               <div>
                 {/* Header */}

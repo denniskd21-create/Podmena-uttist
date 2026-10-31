@@ -79,12 +79,12 @@ export const SearchPad: React.FC<SearchPadProps> = ({
 
       {/* Numeric Touchpad */}
       {showNumpad && (
-        <div className="mt-3 p-3 bg-[#08080A] rounded-xl text-white max-w-xs mx-auto border border-slate-800 animate-fadeIn shadow-2xl">
+        <div className="mt-3 p-3 bg-[#08080A] rounded-xl text-white max-w-xs mx-auto border border-slate-800 animate-fade-in-scale shadow-2xl">
           <div className="flex items-center justify-end mb-2 px-1">
             <button
               type="button"
               onClick={() => setShowNumpad(false)}
-              className="text-xs text-slate-400 hover:text-white px-2.5 py-0.5 rounded-md bg-slate-800/80 border border-slate-700"
+              className="text-xs text-slate-400 hover:text-white px-2.5 py-0.5 rounded-md bg-slate-800/80 border border-slate-700 transition-colors"
             >
               Скрыть
             </button>
@@ -99,7 +99,7 @@ export const SearchPad: React.FC<SearchPadProps> = ({
                   else if (btn === '⌫') handleNumpadBackspace();
                   else handleNumpadClick(btn);
                 }}
-                className={`py-2.5 rounded-xl text-base font-bold font-mono transition-transform active:scale-95 ${
+                className={`py-2.5 rounded-xl text-base font-bold font-mono transition-all duration-200 active:scale-95 hover:scale-[1.03] shadow-sm ${
                   btn === 'C'
                     ? 'bg-rose-950 hover:bg-rose-900 text-rose-200 border border-rose-800'
                     : btn === '⌫'

@@ -33,10 +33,12 @@ import { VehicleList } from './components/VehicleList';
 import { VehicleEditModal } from './components/VehicleEditModal';
 import { AddNoteModal } from './components/AddNoteModal';
 import { ChangelogModal } from './components/ChangelogModal';
+import { SplashScreen } from './components/SplashScreen';
 import { APP_VERSION } from './version';
 import { Truck, Plus } from 'lucide-react';
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedColumn, setSelectedColumn] = useState('Все');
@@ -313,6 +315,8 @@ export default function App() {
         `${window.location.pathname}${window.location.search}#${target.garageNumber}`
       );
     }
+    // Scroll window smoothly to the top so card is visible from the very top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSelectRecentGarageNumber = (num: string) => {
@@ -328,6 +332,8 @@ export default function App() {
         `${window.location.pathname}${window.location.search}#${target.garageNumber}`
       );
     }
+    // Scroll window smoothly to the top so card is visible from the very top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Save/Update Vehicle to Firestore & local state
@@ -423,16 +429,32 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0B] text-slate-100 flex flex-col font-sans">
-      {/* Header */}
-      <Header
-        onOpenAddModal={() => {
-          setVehicleToEdit(null);
-          setIsEditModalOpen(true);
+    <>
+      {showSplash && (
+        <SplashScreen
+          onComplete={() => setShowSplash(false)}
+          headerLogoId="header-app-logo"
+        />
+      )}
+
+      <div
+        className={`min-h-screen bg-[#0A0A0B] text-slate-100 flex flex-col font-sans transition-all duration-700 ease-out ${
+          showSplash ? 'opacity-80 scale-[0.985] filter blur-[1px]' : 'opacity-100 scale-100 filter-none'
+        }`}
+        style={{
+          transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)'
         }}
-        totalVehiclesCount={vehicles.length}
-        selectedVehicle={selectedVehicle}
-      />
+      >
+        {/* Header */}
+        <Header
+          onOpenAddModal={() => {
+            setVehicleToEdit(null);
+            setIsEditModalOpen(true);
+          }}
+          totalVehiclesCount={vehicles.length}
+          selectedVehicle={selectedVehicle}
+          onReplaySplash={() => setShowSplash(true)}
+        />
 
       {/* Main Container */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5">
@@ -505,28 +527,29 @@ export default function App() {
           </div>
         </div>
       </footer>
-
-      {/* Modals */}
-      <VehicleEditModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onSave={handleSaveVehicle}
-        initialVehicle={vehicleToEdit}
-        existingVehicles={vehicles}
-      />
-
-      <AddNoteModal
-        isOpen={isNoteModalOpen}
-        onClose={() => setIsNoteModalOpen(false)}
-        vehicle={vehicleForNote}
-        onSaveNote={handleSaveNote}
-      />
-
-      <ChangelogModal
-        isOpen={isChangelogOpen}
-        onClose={() => setIsChangelogOpen(false)}
-      />
     </div>
+
+    {/* Modals outside app container */}
+    <VehicleEditModal
+      isOpen={isEditModalOpen}
+      onClose={() => setIsEditModalOpen(false)}
+      onSave={handleSaveVehicle}
+      initialVehicle={vehicleToEdit}
+      existingVehicles={vehicles}
+    />
+
+    <AddNoteModal
+      isOpen={isNoteModalOpen}
+      onClose={() => setIsNoteModalOpen(false)}
+      vehicle={vehicleForNote}
+      onSaveNote={handleSaveNote}
+    />
+
+    <ChangelogModal
+      isOpen={isChangelogOpen}
+      onClose={() => setIsChangelogOpen(false)}
+    />
+    </>
   );
 }
 

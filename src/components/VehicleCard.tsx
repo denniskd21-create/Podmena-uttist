@@ -237,7 +237,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
   };
 
   return (
-    <div className="bg-[#0F0F12] rounded-2xl border border-slate-800 shadow-xl overflow-hidden text-slate-100">
+    <div className="bg-[#0F0F12] rounded-2xl border border-slate-800 shadow-2xl overflow-hidden text-slate-100 transition-all duration-300 animate-card-morph">
       {/* HEADER BAR */}
       <div className="bg-[#141419] p-4 sm:p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
@@ -340,20 +340,20 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             <div className="flex items-center gap-1 bg-[#09090C] p-1 rounded-xl border border-slate-800">
               <button
                 onClick={() => handleShiftTabClick('1')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 active:scale-95 ${
                   activeShiftTab === '1'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 scale-[1.02]'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
                 }`}
               >
                 1-я смена
               </button>
               <button
                 onClick={() => handleShiftTabClick('2')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 active:scale-95 ${
                   activeShiftTab === '2'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                    : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30 scale-[1.02]'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
                 }`}
               >
                 2-я смена
@@ -384,7 +384,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
             </span>
 
             {isTwoShift ? (
-              <div className="space-y-1 text-xs">
+              <div key={activeShiftTab} className="space-y-1 text-xs animate-shift-crossfade">
                 <div className="bg-[#1A1A22] p-2 rounded-xl border border-slate-800">
                   <span className="text-slate-400 block text-[10px]">Время смены:</span>
                   <p className="font-mono text-base font-bold text-emerald-400">
@@ -490,7 +490,7 @@ export const VehicleCard: React.FC<VehicleCardProps> = ({
 
         {/* PICKUP POINTS / ROUTE (SHIFT SPECIFIC IF 2-SHIFT) */}
         {currentPickupPoints && currentPickupPoints.length > 0 && (
-          <div className="bg-[#14141A] rounded-2xl p-3.5 border border-slate-800 text-xs">
+          <div key={activeShiftTab} className="bg-[#14141A] rounded-2xl p-3.5 border border-slate-800 text-xs animate-shift-crossfade">
             <span className="font-bold text-slate-300 block mb-1.5">
               {isTwoShift ? `Маршрут и точки сбора (${activeShiftTab}-я смена):` : 'Маршрут и точки сбора:'}
             </span>
