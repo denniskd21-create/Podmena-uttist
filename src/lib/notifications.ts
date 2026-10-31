@@ -180,8 +180,8 @@ export async function sendSystemNotification(title: string, body: string, tag?: 
 
   const options: NotificationOptions & { vibrate?: number[] } = {
     body,
-    icon: '/logo.png',
-    badge: '/logo.png',
+    icon: '/logo.webp',
+    badge: '/logo.webp',
     vibrate: [200, 100, 200, 100, 200],
     requireInteraction: true,
     tag: tag || 'podmena-point-alert',

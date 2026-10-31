@@ -1,8 +1,8 @@
-const CACHE_NAME = 'podmena-uttist-v21';
+const CACHE_NAME = 'podmena-uttist-v22';
 const ASSETS = [
   '/',
   '/manifest.json',
-  '/logo.png'
+  '/logo.webp'
 ];
 
 self.addEventListener('install', (event) => {
@@ -60,8 +60,8 @@ self.addEventListener('message', (event) => {
     const { title, body, icon, tag } = event.data;
     self.registration.showNotification(title, {
       body,
-      icon: icon || '/logo.png',
-      badge: '/logo.png',
+      icon: icon || '/logo.webp',
+      badge: '/logo.webp',
       vibrate: [200, 100, 200, 100, 200],
       tag: tag || 'podmena-alert',
       requireInteraction: true,
