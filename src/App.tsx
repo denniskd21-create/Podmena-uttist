@@ -39,6 +39,7 @@ import { Truck, Plus } from 'lucide-react';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [isMorphing, setIsMorphing] = useState(false);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedColumn, setSelectedColumn] = useState('Все');
@@ -432,14 +433,20 @@ export default function App() {
     <>
       {showSplash && (
         <SplashScreen
-          onComplete={() => setShowSplash(false)}
+          onMorphStart={() => setIsMorphing(true)}
+          onComplete={() => {
+            setShowSplash(false);
+            setIsMorphing(false);
+          }}
           headerLogoId="header-app-logo"
         />
       )}
 
       <div
         className={`min-h-screen bg-[#0A0A0B] text-slate-100 flex flex-col font-sans transition-all duration-700 ease-out ${
-          showSplash ? 'opacity-80 scale-[0.985] filter blur-[1px]' : 'opacity-100 scale-100 filter-none'
+          isMorphing || !showSplash
+            ? 'opacity-100 scale-100 filter-none'
+            : 'opacity-80 scale-[0.985] filter blur-[1px]'
         }`}
         style={{
           transitionTimingFunction: 'cubic-bezier(0.16, 1, 0.3, 1)'
@@ -453,7 +460,11 @@ export default function App() {
           }}
           totalVehiclesCount={vehicles.length}
           selectedVehicle={selectedVehicle}
-          onReplaySplash={() => setShowSplash(true)}
+          onReplaySplash={() => {
+            setIsMorphing(false);
+            setShowSplash(true);
+          }}
+          isMorphing={isMorphing}
         />
 
       {/* Main Container */}

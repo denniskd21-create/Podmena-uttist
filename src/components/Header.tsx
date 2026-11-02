@@ -8,13 +8,15 @@ interface HeaderProps {
   totalVehiclesCount: number;
   selectedVehicle: Vehicle | null;
   onReplaySplash?: () => void;
+  isMorphing?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenAddModal,
   totalVehiclesCount,
   selectedVehicle,
-  onReplaySplash
+  onReplaySplash,
+  isMorphing = false
 }) => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -80,7 +82,9 @@ export const Header: React.FC<HeaderProps> = ({
             id="header-app-logo"
             src="/logo.webp"
             alt="Подмена"
-            className="w-9 h-9 object-contain shrink-0 transition-transform duration-300 group-hover:scale-105 active:scale-95"
+            className={`w-9 h-9 object-contain shrink-0 transition-opacity duration-300 ${
+              isMorphing ? 'opacity-0' : 'opacity-100'
+            } group-hover:scale-105 active:scale-95`}
           />
           <div>
             <h1 className="text-base sm:text-lg font-black tracking-tight text-white leading-tight group-hover:text-blue-300 transition-colors">
