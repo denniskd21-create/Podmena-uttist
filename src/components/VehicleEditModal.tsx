@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { Vehicle, VehicleType, AutoColumn, ShiftType } from '../types';
 import { X, Save, Truck, Plus, Trash2, Users, Check, User, Phone } from 'lucide-react';
 import {
@@ -98,6 +98,15 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
   const [pickupPointsText, setPickupPointsText] = useState('');
   const [shift1PickupPointsText, setShift1PickupPointsText] = useState('');
   const [shift2PickupPointsText, setShift2PickupPointsText] = useState('');
+  const pendingSelectionRef = useRef<{ el: HTMLTextAreaElement; pos: number } | null>(null);
+
+  useLayoutEffect(() => {
+    const pending = pendingSelectionRef.current;
+    pendingSelectionRef.current = null;
+    if (pending && document.activeElement === pending.el) {
+      pending.el.setSelectionRange(pending.pos, pending.pos);
+    }
+  });
 
   const [customerName, setCustomerName] = useState('');
   const [customerContacts, setCustomerContacts] = useState<CustomerContactItem[]>([
@@ -134,89 +143,190 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
     return availableBrandModels.filter((b) => b.toLowerCase().includes(query));
   }, [availableBrandModels, brandModel]);
 
-  // Live route input mask: converts e.g. "930" -> "09:30 — ", "1245" -> "12:45 — "
-  const autoFormatRouteLive = (val: string): string => {
-    if (!val) return '';
-    const lines = val.split('\n');
+  // Live route input mask for a single line with exact cursor mapping:
+  // converts e.g. "930" -> "09:30 — ", "1245" -> "12:45 — "
+  const formatRouteLineWithCursor = (
+    line: string,
+    colOffset: number
+  ): { formatted: string; nextColOffset: number } => {
+    // If line already starts with formatted HH:MM —
+    if (/^\d{2}:\d{2}\s*—/.test(line)) {
+      return { formatted: line, nextColOffset: colOffset };
+    }
 
-    const formattedLines = lines.map((line) => {
-      // If line already starts with formatted HH:MM —
-      if (/^\d{2}:\d{2}\s*—/.test(line)) {
-        return line;
+    const applyPrefix = (
+      hh: string,
+      mm: string,
+      rawHourLen: number,
+      rawPrefixLen: number,
+      rest: string
+    ) => {
+      const leadingDelimMatch = rest.match(/^[\s—\-]+/);
+      const trimmedLeadingLen = leadingDelimMatch ? leadingDelimMatch[0].length : 0;
+      const cleanRest = rest.slice(trimmedLeadingLen);
+      const formattedPrefix = `${hh}:${mm} — `;
+      const formatted = `${formattedPrefix}${cleanRest}`;
+      const oldHeaderLen = rawPrefixLen + trimmedLeadingLen;
+
+      let nextColOffset: number;
+      if (colOffset < rawPrefixLen) {
+        // Cursor was inside the time characters being edited (e.g., "08:30")
+        const padDelta = hh.length - rawHourLen;
+        nextColOffset = Math.max(0, colOffset + padDelta);
+      } else if (colOffset <= oldHeaderLen) {
+        // Cursor was right after the digits/time or inside the separator -> place right after "HH:MM — "
+        nextColOffset = formattedPrefix.length;
+      } else {
+        // Cursor was inside the stop description text
+        nextColOffset = formattedPrefix.length + (colOffset - oldHeaderLen);
       }
 
-      // Match 4 digits at start of line, e.g. "1245" -> "12:45 — ", "0930" -> "09:30 — "
-      const fourDigitsMatch = line.match(/^(\d{4})(\s*.*)$/);
-      if (fourDigitsMatch) {
-        const digits = fourDigitsMatch[1];
-        const rest = fourDigitsMatch[2] || '';
-        const hh = digits.slice(0, 2);
-        const mm = digits.slice(2, 4);
+      return { formatted, nextColOffset };
+    };
 
+    // Match 4 digits at start of line, e.g. "1245" -> "12:45 — ", "0930" -> "09:30 — "
+    const fourDigitsMatch = line.match(/^(\d{4})(\s*.*)$/);
+    if (fourDigitsMatch) {
+      const digits = fourDigitsMatch[1];
+      const rest = fourDigitsMatch[2] || '';
+      const hh = digits.slice(0, 2);
+      const mm = digits.slice(2, 4);
+
+      const hNum = parseInt(hh, 10);
+      const mNum = parseInt(mm, 10);
+
+      if (hNum <= 23 && mNum <= 59) {
+        return applyPrefix(hh, mm, 2, 4, rest);
+      }
+    }
+
+    // Match 3 digits at start of line, e.g. "930", "124", "235"
+    const threeDigitsMatch = line.match(/^(\d{3})(\s*.*)$/);
+    if (threeDigitsMatch) {
+      const digits = threeDigitsMatch[1];
+      const rest = threeDigitsMatch[2] || '';
+      const d0 = digits[0];
+
+      // If first digit is 3..9 (e.g. "930", "615"), hour MUST be 1 digit!
+      if (/[3-9]/.test(d0)) {
+        const hh = '0' + d0;
+        const mm = digits.slice(1, 3);
         const hNum = parseInt(hh, 10);
         const mNum = parseInt(mm, 10);
 
         if (hNum <= 23 && mNum <= 59) {
-          const cleanRest = rest.replace(/^[\s—\-]+/, '');
-          return `${hh}:${mm} — ${cleanRest}`;
+          return applyPrefix(hh, mm, 1, 3, rest);
         }
       }
 
-      // Match 3 digits at start of line, e.g. "930", "124", "235"
-      const threeDigitsMatch = line.match(/^(\d{3})(\s*.*)$/);
-      if (threeDigitsMatch) {
-        const digits = threeDigitsMatch[1];
-        const rest = threeDigitsMatch[2] || '';
-        const d0 = digits[0];
-
-        // If first digit is 3..9 (e.g. "930", "615"), hour MUST be 1 digit!
-        if (/[3-9]/.test(d0)) {
-          const hh = '0' + d0;
-          const mm = digits.slice(1, 3);
-          const hNum = parseInt(hh, 10);
-          const mNum = parseInt(mm, 10);
-
-          if (hNum <= 23 && mNum <= 59) {
-            const cleanRest = rest.replace(/^[\s—\-]+/, '');
-            return `${hh}:${mm} — ${cleanRest}`;
-          }
-        }
-
-        // If first digit is 0..2 (e.g. "124", "235"), user might be typing 4 digits ("1245").
-        // Convert ONLY if there is a space, dash, or delimiter after the 3 digits (e.g. "124 " or "124-")
-        if (/[0-2]/.test(d0) && /^[\s—\-]+/.test(rest)) {
-          const hh = '0' + d0;
-          const mm = digits.slice(1, 3);
-          const hNum = parseInt(hh, 10);
-          const mNum = parseInt(mm, 10);
-
-          if (hNum <= 23 && mNum <= 59) {
-            const cleanRest = rest.replace(/^[\s—\-]+/, '');
-            return `${hh}:${mm} — ${cleanRest}`;
-          }
-        }
-      }
-
-      // Match "H:MM" or "HH:MM" at start of line (e.g. "9:30" or "09:30 ")
-      const timeMatch = line.match(/^(\d{1,2}):(\d{2})(\s*.*)$/);
-      if (timeMatch) {
-        const hh = timeMatch[1].padStart(2, '0');
-        const mm = timeMatch[2];
-        const rest = timeMatch[3] || '';
-
+      // If first digit is 0..2 (e.g. "124", "235"), user might be typing 4 digits ("1245").
+      // Convert ONLY if there is a space, dash, or delimiter after the 3 digits (e.g. "124 " or "124-")
+      if (/[0-2]/.test(d0) && /^[\s—\-]+/.test(rest)) {
+        const hh = '0' + d0;
+        const mm = digits.slice(1, 3);
         const hNum = parseInt(hh, 10);
         const mNum = parseInt(mm, 10);
 
         if (hNum <= 23 && mNum <= 59) {
-          const cleanRest = rest.replace(/^[\s—\-]+/, '');
-          return `${hh}:${mm} — ${cleanRest}`;
+          return applyPrefix(hh, mm, 1, 3, rest);
         }
       }
+    }
 
-      return line;
+    // Match "H:MM" or "HH:MM" at start of line (e.g. "9:30" or "09:30 ")
+    const timeMatch = line.match(/^(\d{1,2}):(\d{2})(\s*.*)$/);
+    if (timeMatch) {
+      const rawHourLen = timeMatch[1].length;
+      const rawTimeLen = rawHourLen + 1 + timeMatch[2].length;
+      const hh = timeMatch[1].padStart(2, '0');
+      const mm = timeMatch[2];
+      const rest = timeMatch[3] || '';
+
+      const hNum = parseInt(hh, 10);
+      const mNum = parseInt(mm, 10);
+
+      if (hNum <= 23 && mNum <= 59) {
+        return applyPrefix(hh, mm, rawHourLen, rawTimeLen, rest);
+      }
+    }
+
+    return { formatted: line, nextColOffset: colOffset };
+  };
+
+  const handleRouteTextChange = (
+    e: React.ChangeEvent<HTMLTextAreaElement>,
+    prevVal: string,
+    setter: React.Dispatch<React.SetStateAction<string>>
+  ) => {
+    const el = e.target;
+    const nextRaw = el.value;
+    const rawCursor = el.selectionStart ?? nextRaw.length;
+    const inputType = (e.nativeEvent as InputEvent | undefined)?.inputType || '';
+    const isPaste = inputType === 'insertFromPaste';
+    const isDeleting =
+      !isPaste && (inputType.startsWith('delete') || nextRaw.length < prevVal.length);
+
+    // Never auto-format on deletion so users can freely erase " — " and times without jumping
+    if (isDeleting) {
+      setter(nextRaw);
+      return;
+    }
+
+    const lines = nextRaw.split('\n');
+    let charAcc = 0;
+    let activeLineIdx = lines.length - 1;
+    let activeColOffset = lines[activeLineIdx].length;
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineEnd = charAcc + lines[i].length;
+      if (rawCursor <= lineEnd) {
+        activeLineIdx = i;
+        activeColOffset = rawCursor - charAcc;
+        break;
+      }
+      charAcc = lineEnd + 1;
+    }
+
+    let firstAffectedIdx = activeLineIdx;
+    if (isPaste) {
+      const prevLineCount = prevVal.split('\n').length;
+      const addedLines = Math.max(0, lines.length - prevLineCount);
+      firstAffectedIdx = Math.max(0, activeLineIdx - addedLines);
+    }
+
+    let changed = false;
+    let newCursorPos = rawCursor;
+    let runningOffset = 0;
+
+    const nextLines = lines.map((line, idx) => {
+      let resultLine = line;
+      let lineCol = idx === activeLineIdx ? activeColOffset : line.length;
+
+      if (idx >= firstAffectedIdx && idx <= activeLineIdx) {
+        const res = formatRouteLineWithCursor(line, lineCol);
+        if (res.formatted !== line) {
+          changed = true;
+        }
+        resultLine = res.formatted;
+        lineCol = res.nextColOffset;
+      }
+
+      if (idx === activeLineIdx) {
+        newCursorPos = runningOffset + lineCol;
+      }
+      runningOffset += resultLine.length + 1;
+      return resultLine;
     });
 
-    return formattedLines.join('\n');
+    const formattedText = nextLines.join('\n');
+
+    if (!changed || formattedText === nextRaw) {
+      setter(nextRaw);
+      return;
+    }
+
+    pendingSelectionRef.current = { el, pos: newCursorPos };
+    setter(formattedText);
   };
 
   const formatRouteOnBlur = (val: string): string => {
@@ -794,10 +904,10 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                     Маршрут и точки сбора 1-Й СМЕНЫ (по 1 строке):
                   </label>
                   <textarea
-                    rows={2}
+                    rows={4}
                     placeholder={'930 — Площадка №4\n1830 — Посёлок №3'}
                     value={shift1PickupPointsText}
-                    onChange={(e) => setShift1PickupPointsText(autoFormatRouteLive(e.target.value))}
+                    onChange={(e) => handleRouteTextChange(e, shift1PickupPointsText, setShift1PickupPointsText)}
                     onBlur={(e) => setShift1PickupPointsText(formatRouteOnBlur(e.target.value))}
                     className="w-full p-2 bg-[#1A1A22] border border-slate-700 rounded-lg font-mono text-white placeholder-slate-500"
                   />
@@ -808,10 +918,10 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                     Маршрут и точки сбора 2-Й СМЕНЫ (по 1 строке):
                   </label>
                   <textarea
-                    rows={2}
+                    rows={4}
                     placeholder={'1830 — Площадка №4\n1845 — Посёлок №3'}
                     value={shift2PickupPointsText}
-                    onChange={(e) => setShift2PickupPointsText(autoFormatRouteLive(e.target.value))}
+                    onChange={(e) => handleRouteTextChange(e, shift2PickupPointsText, setShift2PickupPointsText)}
                     onBlur={(e) => setShift2PickupPointsText(formatRouteOnBlur(e.target.value))}
                     className="w-full p-2 bg-[#1A1A22] border border-slate-700 rounded-lg font-mono text-white placeholder-slate-500"
                   />
@@ -823,10 +933,10 @@ export const VehicleEditModal: React.FC<VehicleEditModalProps> = ({
                   Точки сбора / маршрут (по 1 строке):
                 </label>
                 <textarea
-                  rows={2}
+                  rows={4}
                   placeholder={'630 — Площадка №4\n700 — ГП-2'}
                   value={pickupPointsText}
-                  onChange={(e) => setPickupPointsText(autoFormatRouteLive(e.target.value))}
+                  onChange={(e) => handleRouteTextChange(e, pickupPointsText, setPickupPointsText)}
                   onBlur={(e) => setPickupPointsText(formatRouteOnBlur(e.target.value))}
                   className="w-full p-2 bg-[#1A1A22] border border-slate-700 rounded-lg font-mono text-white placeholder-slate-500"
                 />
