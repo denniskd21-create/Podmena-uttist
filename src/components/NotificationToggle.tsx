@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Bell, BellOff, BellRing, CheckCircle2, AlertCircle, Sparkles, Send, Clock, ShieldCheck, X } from 'lucide-react';
 import {
   NotificationSettings,
@@ -186,7 +187,160 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
     }
   };
 
+  // Lock background scroll on mobile when notification modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+    if (!isMobile) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
   const isEnabledAndGranted = settings.enabled && permission === 'granted';
+
+  const modalContent = (
+    <>
+      {/* Modal Header */}
+      <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+        <div className="flex items-center gap-2">
+          <div className="p-2 bg-blue-950 text-blue-400 rounded-xl border border-blue-800">
+            <Bell className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="font-bold text-sm text-white">Уведомления на часы и телефон</h3>
+            <p className="text-[11px] text-slate-400">За 15 минут до точки сбора или выезда</p>
+          </div>
+        </div>
+        <button
+          onClick={() => setIsOpen(false)}
+          className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Toggle Switch Box */}
+      <div className="bg-[#181822] border border-slate-800 rounded-xl p-3 flex items-center justify-between mb-3">
+        <div>
+          <span className="text-xs font-bold text-white block">Напоминания за 15 минут</span>
+          <span className="text-[11px] text-slate-400 block">
+            {settings.enabled ? 'Включены для выезда и точек' : 'Выключены'}
+          </span>
+        </div>
+        <button
+          onClick={handleToggle}
+          className={`w-12 h-6 rounded-full transition-colors relative p-0.5 border ${
+            settings.enabled
+              ? 'bg-emerald-600 border-emerald-500'
+              : 'bg-slate-800 border-slate-700'
+          }`}
+        >
+          <div
+            className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform transform ${
+              settings.enabled ? 'translate-x-6' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
+
+      {/* Permission Status */}
+      <div className="mb-3 text-xs">
+        {permission === 'granted' ? (
+          <div className="flex items-center gap-2 p-2 bg-emerald-950/60 border border-emerald-800/80 rounded-xl text-emerald-300">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>Разрешение браузера получено. Уведомления разрешены.</span>
+          </div>
+        ) : permission === 'denied' ? (
+          <div className="flex items-start gap-2 p-2 bg-rose-950/60 border border-rose-800/80 rounded-xl text-rose-300">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold block">Уведомления заблокированы браузером</span>
+              <span className="text-[11px] text-rose-200">
+                Запрос разрешения отклонен или заблокирован в настройках браузера.
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="p-2.5 bg-amber-950/60 border border-amber-800/80 rounded-xl text-amber-300 space-y-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="font-bold">Требуется подтверждение браузера</span>
+            </div>
+            <button
+              onClick={async () => {
+                const granted = await requestNotificationPermission();
+                const currentPerm = getNotificationPermissionState();
+                setPermission(currentPerm);
+                if (granted) {
+                  const next = { ...settings, enabled: true };
+                  setSettings(next);
+                  saveNotificationSettings(next);
+                }
+              }}
+              className="w-full py-1.5 px-3 bg-amber-600 hover:bg-amber-500 active:scale-98 text-white font-bold text-xs rounded-lg transition-all shadow-md flex items-center justify-center gap-1.5"
+            >
+              <BellRing className="w-3.5 h-3.5" />
+              Запросить разрешение
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Selected Vehicle Tracking info */}
+      <div className="bg-[#181822] border border-slate-800 rounded-xl p-3 mb-3 text-xs">
+        <span className="text-slate-400 font-medium block text-[11px] uppercase tracking-wider mb-1">
+          Отслеживаемый автомобиль:
+        </span>
+        {selectedVehicle ? (
+          <div>
+            <div className="flex items-center gap-2 font-bold text-white">
+              <span className="px-1.5 py-0.5 bg-blue-600 rounded text-xs font-mono">
+                {selectedVehicle.garageNumber}
+              </span>
+              <span>{selectedVehicle.brandModel}</span>
+            </div>
+            {upcomingPoint ? (
+              <div className="mt-2 p-2 bg-blue-950/50 border border-blue-800/80 rounded-lg text-blue-200 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-blue-400 shrink-0" />
+                <div>
+                  <span className="font-bold block">
+                    Следующая точка: {upcomingPoint.point.timeStr}
+                  </span>
+                  <span className="text-[11px] text-blue-300">
+                    {upcomingPoint.point.label} ({upcomingPoint.diffSeconds !== undefined ? formatPointCountdown(upcomingPoint.diffSeconds) : `через ${upcomingPoint.minLeft} мин`})
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[11px] text-slate-400 mt-1">
+                На сегодня все точки пройдены или не указано время.
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="text-slate-400 italic">
+            Выберите автомобиль в поиске или списке, чтобы получать по нему уведомления.
+          </p>
+        )}
+      </div>
+
+      {/* Test Notification Button */}
+      <button
+        onClick={handleSendTest}
+        className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-600/30"
+      >
+        <Send className="w-3.5 h-3.5" />
+        <span>{testSent ? '✓ Уведомление отправлено!' : 'Проверить уведомление (Тест)'}</span>
+      </button>
+
+      <p className="text-[10px] text-slate-500 mt-2 text-center">
+        Уведомления приходят в панель управления устройства и дублируются на подключенные смарт-часы.
+      </p>
+    </>
+  );
 
   return (
     <div className="relative">
@@ -218,150 +372,27 @@ export const NotificationToggle: React.FC<NotificationToggleProps> = ({ selected
       {/* Popover / Modal Dropdown */}
       {isOpen && (
         <>
-          {/* Backdrop on mobile */}
-          <div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs sm:hidden"
-            onClick={() => setIsOpen(false)}
-          />
+          {/* Tablet / Desktop anchored dropdown */}
+          <div className="hidden sm:block sm:absolute sm:top-full sm:right-0 sm:mt-2 sm:w-96 max-h-[85vh] overflow-y-auto bg-[#121218] border border-slate-700 rounded-2xl shadow-2xl z-50 p-4 text-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            {modalContent}
+          </div>
 
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100vw-2rem)] max-w-md sm:absolute sm:top-full sm:left-auto sm:right-0 sm:translate-x-0 sm:translate-y-0 sm:mt-2 sm:w-96 max-h-[90vh] overflow-y-auto bg-[#121218] border border-slate-700 rounded-2xl shadow-2xl z-50 p-4 text-slate-100 animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-blue-950 text-blue-400 rounded-xl border border-blue-800">
-                  <Bell className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-sm text-white">Уведомления на часы и телефон</h3>
-                  <p className="text-[11px] text-slate-400">За 15 минут до точки сбора или выезда</p>
-                </div>
-              </div>
-              <button
+          {/* Mobile centered modal rendered in document.body to avoid parent transform fixed-positioning offset */}
+          {typeof document !== 'undefined' &&
+            createPortal(
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs sm:hidden"
                 onClick={() => setIsOpen(false)}
-                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Toggle Switch Box */}
-            <div className="bg-[#181822] border border-slate-800 rounded-xl p-3 flex items-center justify-between mb-3">
-              <div>
-                <span className="text-xs font-bold text-white block">Напоминания за 15 минут</span>
-                <span className="text-[11px] text-slate-400 block">
-                  {settings.enabled ? 'Включены для выезда и точек' : 'Выключены'}
-                </span>
-              </div>
-              <button
-                onClick={handleToggle}
-                className={`w-12 h-6 rounded-full transition-colors relative p-0.5 border ${
-                  settings.enabled
-                    ? 'bg-emerald-600 border-emerald-500'
-                    : 'bg-slate-800 border-slate-700'
-                }`}
               >
                 <div
-                  className={`w-5 h-5 rounded-full bg-white shadow-md transition-transform transform ${
-                    settings.enabled ? 'translate-x-6' : 'translate-x-0'
-                  }`}
-                />
-              </button>
-            </div>
-
-            {/* Permission Status */}
-            <div className="mb-3 text-xs">
-              {permission === 'granted' ? (
-                <div className="flex items-center gap-2 p-2 bg-emerald-950/60 border border-emerald-800/80 rounded-xl text-emerald-300">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span>Разрешение браузера получено. Уведомления разрешены.</span>
+                  className="w-full max-w-md max-h-[90vh] overflow-y-auto bg-[#121218] border border-slate-700 rounded-2xl shadow-2xl p-4 text-slate-100 animate-in fade-in zoom-in-95 duration-150"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {modalContent}
                 </div>
-              ) : permission === 'denied' ? (
-                <div className="flex items-start gap-2 p-2 bg-rose-950/60 border border-rose-800/80 rounded-xl text-rose-300">
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                  <div>
-                    <span className="font-bold block">Уведомления заблокированы браузером</span>
-                    <span className="text-[11px] text-rose-200">
-                      Запрос разрешения отклонен или заблокирован в настройках браузера.
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="p-2.5 bg-amber-950/60 border border-amber-800/80 rounded-xl text-amber-300 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span className="font-bold">Требуется подтверждение браузера</span>
-                  </div>
-                  <button
-                    onClick={async () => {
-                      const granted = await requestNotificationPermission();
-                      const currentPerm = getNotificationPermissionState();
-                      setPermission(currentPerm);
-                      if (granted) {
-                        const next = { ...settings, enabled: true };
-                        setSettings(next);
-                        saveNotificationSettings(next);
-                      }
-                    }}
-                    className="w-full py-1.5 px-3 bg-amber-600 hover:bg-amber-500 active:scale-98 text-white font-bold text-xs rounded-lg transition-all shadow-md flex items-center justify-center gap-1.5"
-                  >
-                    <BellRing className="w-3.5 h-3.5" />
-                    Запросить разрешение
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Selected Vehicle Tracking info */}
-            <div className="bg-[#181822] border border-slate-800 rounded-xl p-3 mb-3 text-xs">
-              <span className="text-slate-400 font-medium block text-[11px] uppercase tracking-wider mb-1">
-                Отслеживаемый автомобиль:
-              </span>
-              {selectedVehicle ? (
-                <div>
-                  <div className="flex items-center gap-2 font-bold text-white">
-                    <span className="px-1.5 py-0.5 bg-blue-600 rounded text-xs font-mono">
-                      {selectedVehicle.garageNumber}
-                    </span>
-                    <span>{selectedVehicle.brandModel}</span>
-                  </div>
-                  {upcomingPoint ? (
-                    <div className="mt-2 p-2 bg-blue-950/50 border border-blue-800/80 rounded-lg text-blue-200 flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-blue-400 shrink-0" />
-                      <div>
-                        <span className="font-bold block">
-                          Следующая точка: {upcomingPoint.point.timeStr}
-                        </span>
-                        <span className="text-[11px] text-blue-300">
-                          {upcomingPoint.point.label} ({upcomingPoint.diffSeconds !== undefined ? formatPointCountdown(upcomingPoint.diffSeconds) : `через ${upcomingPoint.minLeft} мин`})
-                        </span>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-slate-400 mt-1">
-                      На сегодня все точки пройдены или не указано время.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-slate-400 italic">
-                  Выберите автомобиль в поиске или списке, чтобы получать по нему уведомления.
-                </p>
-              )}
-            </div>
-
-            {/* Test Notification Button */}
-            <button
-              onClick={handleSendTest}
-              className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-all shadow-md shadow-blue-600/30"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>{testSent ? '✓ Уведомление отправлено!' : 'Проверить уведомление (Тест)'}</span>
-            </button>
-
-            <p className="text-[10px] text-slate-500 mt-2 text-center">
-              Уведомления приходят в панель управления устройства и дублируются на подключенные смарт-часы.
-            </p>
-          </div>
+              </div>,
+              document.body
+            )}
         </>
       )}
     </div>
