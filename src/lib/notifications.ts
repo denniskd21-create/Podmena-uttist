@@ -308,6 +308,7 @@ export function updateNotificationSchedule(
   const settings = getNotificationSettings();
   if (!settings.enabled || !allVehicles || allVehicles.length === 0) {
     saveScheduledNotifications([]);
+    syncPushScheduleToServer([], null);
     return [];
   }
 
@@ -368,6 +369,12 @@ export function updateNotificationSchedule(
 
   scheduleItems.sort((a, b) => a.targetTimestamp - b.targetTimestamp);
   saveScheduledNotifications(scheduleItems);
+
+  const selectedObj = selectedVehicleId
+    ? allVehicles.find((v) => v.id === selectedVehicleId) || null
+    : null;
+  syncPushScheduleToServer(scheduleItems, selectedObj);
+
   return scheduleItems;
 }
 
@@ -633,4 +640,285 @@ export function startBackgroundNotificationWorker(
   }
 }
 
+// ============================================================
+// Web Push (Background Android / Lock-Screen Delivery)
+// ============================================================
 
+export interface PushDiagnostics {
+  supported: boolean;
+  subscribed: boolean;
+  envConfigured: boolean;
+  activeSubscriptions: number;
+  scheduledCount: number;
+  lastCheckAt: number | null;
+  lastCronAt: number | null;
+}
+
+export function isWebPushSupported(): boolean {
+  return (
+    typeof window !== 'undefined' &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    'Notification' in window
+  );
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const buffer = new ArrayBuffer(rawData.length);
+  const outputArray = new Uint8Array(buffer);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+function arrayBufferToUrlBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+export async function getExistingPushSubscription(): Promise<PushSubscription | null> {
+  if (!isWebPushSupported()) return null;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    return await reg.pushManager.getSubscription();
+  } catch {
+    return null;
+  }
+}
+
+export async function ensurePushSubscription(): Promise<{
+  subscription: PushSubscription | null;
+  error?: string;
+}> {
+  if (!isWebPushSupported()) {
+    return { subscription: null, error: 'Браузер не поддерживает фоновые Push-уведомления' };
+  }
+  if (Notification.permission !== 'granted') {
+    return { subscription: null, error: 'Сначала выдайте разрешение на уведомления' };
+  }
+
+  try {
+    const cfgRes = await fetch('/api/push/config', { cache: 'no-store' });
+    if (!cfgRes.ok) {
+      return { subscription: null, error: 'Сервер Push временно недоступен' };
+    }
+    const cfg = await cfgRes.json();
+    const serverPublicKey: string = cfg.publicKey;
+    if (!serverPublicKey) {
+      return { subscription: null, error: 'Не получен публичный ключ сервера' };
+    }
+
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+
+    // Re-subscribe if server VAPID public key changed
+    if (sub && sub.options?.applicationServerKey) {
+      const currentKey = arrayBufferToUrlBase64(sub.options.applicationServerKey);
+      if (currentKey !== serverPublicKey) {
+        await sub.unsubscribe();
+        sub = null;
+      }
+    }
+
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(serverPublicKey),
+      });
+    }
+
+    return { subscription: sub };
+  } catch (err: any) {
+    console.warn('ensurePushSubscription error:', err);
+    return {
+      subscription: null,
+      error: err?.message || 'Не удалось оформить Push-подписку в браузере',
+    };
+  }
+}
+
+let lastSyncSignature = '';
+let syncTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function syncPushScheduleToServer(
+  items: ScheduledNotificationItem[],
+  selectedVehicle?: Vehicle | null,
+  immediate = false
+): void {
+  if (typeof window === 'undefined' || !isWebPushSupported()) return;
+  if (Notification.permission !== 'granted') return;
+
+  const settings = getNotificationSettings();
+  const now = Date.now();
+  const upcomingItems = settings.enabled
+    ? items
+        .filter((i) => i.targetTimestamp >= now - 2 * 60_000)
+        .slice(0, 60)
+        .map((i) => ({
+          id: i.id,
+          targetTimestamp: i.targetTimestamp,
+          title: i.title,
+          body: i.body,
+        }))
+    : [];
+
+  const signature = JSON.stringify({
+    enabled: settings.enabled,
+    vehicleId: selectedVehicle?.id || '',
+    items: upcomingItems.map((i) => `${i.id}:${i.targetTimestamp}`),
+  });
+
+  if (!immediate && signature === lastSyncSignature) {
+    return;
+  }
+
+  const doSync = async () => {
+    try {
+      let sub: PushSubscription | null = null;
+      if (settings.enabled) {
+        const res = await ensurePushSubscription();
+        sub = res.subscription;
+      } else {
+        sub = await getExistingPushSubscription();
+      }
+      if (!sub) return;
+
+      const resp = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription: sub.toJSON(),
+          enabled: settings.enabled,
+          vehicleId: selectedVehicle?.id || '',
+          garageNumber: selectedVehicle?.garageNumber || '',
+          items: upcomingItems,
+        }),
+      });
+
+      if (resp.ok) {
+        lastSyncSignature = signature;
+        window.dispatchEvent(new Event('podmena_push_synced'));
+      }
+    } catch (err) {
+      console.warn('Push schedule sync warning:', err);
+    }
+  };
+
+  if (syncTimer) clearTimeout(syncTimer);
+  if (immediate) {
+    doSync();
+  } else {
+    syncTimer = setTimeout(doSync, 800);
+  }
+}
+
+export async function sendImmediateServerPushTest(
+  title?: string,
+  body?: string
+): Promise<{ ok: boolean; error?: string }> {
+  const { subscription, error } = await ensurePushSubscription();
+  if (!subscription) {
+    return { ok: false, error };
+  }
+
+  try {
+    const res = await fetch('/api/push/test', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscription: subscription.toJSON(),
+        title,
+        body,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: data.error || 'Ошибка отправки Push с сервера' };
+    }
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Нет связи с сервером' };
+  }
+}
+
+export async function sendDelayedServerPushTest(
+  delayMs = 7000,
+  title?: string,
+  body?: string
+): Promise<{ ok: boolean; error?: string }> {
+  const { subscription, error } = await ensurePushSubscription();
+  if (!subscription) {
+    return { ok: false, error };
+  }
+
+  try {
+    const res = await fetch('/api/push/test-delayed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: true,
+      body: JSON.stringify({
+        subscription: subscription.toJSON(),
+        delayMs,
+        title,
+        body,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      return { ok: false, error: data.error || 'Ошибка планирования теста' };
+    }
+    return { ok: true };
+  } catch (err: any) {
+    return { ok: false, error: err?.message || 'Нет связи с сервером' };
+  }
+}
+
+export async function fetchPushDiagnostics(): Promise<PushDiagnostics> {
+  const supported = isWebPushSupported();
+  if (!supported) {
+    return {
+      supported: false,
+      subscribed: false,
+      envConfigured: false,
+      activeSubscriptions: 0,
+      scheduledCount: 0,
+      lastCheckAt: null,
+      lastCronAt: null,
+    };
+  }
+
+  const sub = await getExistingPushSubscription();
+  try {
+    const qs = sub ? `?endpoint=${encodeURIComponent(sub.endpoint)}` : '';
+    const res = await fetch(`/api/push/status${qs}`, { cache: 'no-store' });
+    if (!res.ok) throw new Error('status error');
+    const data = await res.json();
+    return {
+      supported: true,
+      subscribed: Boolean(sub && data.subscriptionActive),
+      envConfigured: Boolean(data.envConfigured),
+      activeSubscriptions: Number(data.activeSubscriptions) || 0,
+      scheduledCount: Number(data.scheduledCount) || 0,
+      lastCheckAt: data.lastCheckAt || null,
+      lastCronAt: data.lastCronAt || null,
+    };
+  } catch {
+    return {
+      supported: true,
+      subscribed: Boolean(sub),
+      envConfigured: false,
+      activeSubscriptions: 0,
+      scheduledCount: 0,
+      lastCheckAt: null,
+      lastCronAt: null,
+    };
+  }
+}

@@ -1,8 +1,75 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Global default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidSubId(id) {
+      return id is string && id.size() == 64 && id.matches('^[a-f0-9]+$');
+    }
+
+    function isValidPushSubscription(data) {
+      return data.keys().hasAll(['id', 'encryptedPayload', 'enabled', 'nextTriggerAt', 'sentIds', 'updatedAt'])
+        && data.keys().hasOnly(['id', 'encryptedPayload', 'enabled', 'nextTriggerAt', 'sentIds', 'updatedAt'])
+        && isValidSubId(data.id)
+        && data.encryptedPayload is string
+        && data.encryptedPayload.size() >= 16
+        && data.encryptedPayload.size() <= 16384
+        && data.enabled is bool
+        && data.nextTriggerAt is number
+        && data.nextTriggerAt >= 0
+        && data.sentIds is list
+        && data.sentIds.size() <= 120
+        && (data.sentIds.size() == 0 || (data.sentIds[0] is string && data.sentIds[0].size() <= 160))
+        && data.updatedAt is number
+        && data.updatedAt > 0;
+    }
+
+    function isValidPushCronMeta(data) {
+      return data.keys().hasAll(['lastCronAt', 'lastCheckAt', 'lastSentCount'])
+        && data.keys().hasOnly(['lastCronAt', 'lastCheckAt', 'lastSentCount'])
+        && data.lastCronAt is number
+        && data.lastCheckAt is number
+        && data.lastSentCount is number;
+    }
+
     match /vehicles/{vehicleId} {
       allow read, write: if true;
+    }
+
+    match /_meta/{metaId} {
+      allow get: if metaId == 'initialized' || metaId == 'push_cron';
+      allow create: if (metaId == 'initialized'
+        && incoming().keys().hasAll(['initialized', 'timestamp'])
+        && incoming().keys().hasOnly(['initialized', 'timestamp'])
+        && incoming().initialized is bool
+        && incoming().timestamp is string
+        && incoming().timestamp.size() <= 64)
+        || (metaId == 'push_cron' && isValidPushCronMeta(incoming()));
+      allow update: if metaId == 'push_cron' && isValidPushCronMeta(incoming());
+    }
+
+    match /push_subscriptions/{subId} {
+      allow list: if true;
+      allow get: if isValidSubId(subId);
+      allow create: if isValidSubId(subId)
+        && incoming().id == subId
+        && isValidPushSubscription(incoming());
+      allow update: if isValidSubId(subId)
+        && incoming().id == existing().id
+        && isValidPushSubscription(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['encryptedPayload', 'enabled', 'nextTriggerAt', 'sentIds', 'updatedAt']);
+      allow delete: if isValidSubId(subId);
     }
   }
 }

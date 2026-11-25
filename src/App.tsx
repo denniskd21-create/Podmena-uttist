@@ -232,7 +232,11 @@ export default function App() {
 
   // Sync notification schedule and run live background notification ticker
   useEffect(() => {
-    updateNotificationSchedule(vehicles, selectedVehicle?.id);
+    const syncSchedule = () => {
+      updateNotificationSchedule(vehicles, selectedVehicle?.id);
+    };
+
+    syncSchedule();
 
     startBackgroundNotificationWorker(() => ({
       selectedVehicle,
@@ -248,9 +252,13 @@ export default function App() {
       check();
     };
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('notification_settings_changed', syncSchedule);
+    window.addEventListener('vehicle_shift_changed', syncSchedule);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('notification_settings_changed', syncSchedule);
+      window.removeEventListener('vehicle_shift_changed', syncSchedule);
     };
   }, [selectedVehicle, vehicles]);
 
