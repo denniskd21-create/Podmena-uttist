@@ -4,27 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="google" content="notranslate" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Подмена — УТТиСТ</title>
+    <title>УТТиСТ Подменный Водитель</title>
+    <meta name="description" content="Справочник и оперативный блокнот подменного водителя УТТиСТ: гаражные номера, МВЗ, заказчики, время выезда, нюансы ТС и пересмены." />
+    <meta property="og:title" content="УТТиСТ Подменный Водитель" />
+    <meta property="og:description" content="Справочник и оперативный блокнот подменного водителя УТТиСТ: гаражные номера, МВЗ, заказчики, время выезда, нюансы ТС и пересмены." />
     <link rel="icon" type="image/webp" href="/logo.webp" />
-    <link rel="apple-touch-icon" href="/logo.webp" />
-    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="theme-color" content="#0A0A0B" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Подмена" />
   </head>
-  <body>
+  <body class="bg-[#0A0A0B] text-slate-200">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch((err) => {
-            console.log('SW registration failed:', err);
-          });
-        });
-      }
-    </script>
   </body>
 </html>
 

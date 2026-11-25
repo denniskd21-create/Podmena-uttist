@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Vehicle, DriverNote } from './types';
 import {
   getStoredVehicles,
@@ -35,17 +35,27 @@ import { AddNoteModal } from './components/AddNoteModal';
 import { ChangelogModal } from './components/ChangelogModal';
 import { SplashScreen } from './components/SplashScreen';
 import { APP_VERSION } from './version';
-import { Truck, Plus } from 'lucide-react';
+import { Truck, Plus, WifiOff, RefreshCw } from 'lucide-react';
 
 export default function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [isMorphing, setIsMorphing] = useState(false);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => getStoredVehicles());
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedColumn, setSelectedColumn] = useState('Все');
   const [selectedShift, setSelectedShift] = useState('Все смены');
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null);
   const [recentGarageNumbers, setRecentGarageNumbers] = useState<string[]>([]);
+  const [isOnline, setIsOnline] = useState<boolean>(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+
+  const vehiclesRef = useRef<Vehicle[]>(vehicles);
+  vehiclesRef.current = vehicles;
+  const isSyncingRef = useRef(false);
+  const wasOfflineRef = useRef(typeof navigator !== 'undefined' ? !navigator.onLine : false);
+  const lastSyncOkAtRef = useRef(0);
 
   // Modals state
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -116,56 +126,115 @@ export default function App() {
       }
     }
 
-    // Fetch from Firestore once on screen load (single request, no infinite background listener loop)
+    // Fetch from Firestore once on load and automatically re-sync when connection returns
     let isMounted = true;
-    fetchVehiclesOnce()
-      .then((remoteVehicles) => {
-        if (!isMounted || !remoteVehicles || remoteVehicles.length === 0) return;
-        setVehicles(remoteVehicles);
-        saveStoredVehicles(remoteVehicles);
+    let noticeTimer: ReturnType<typeof setTimeout> | null = null;
 
-        const currentUrlGarage = getGarageFromUrl();
-        if (currentUrlGarage) {
-          const urlMatch = remoteVehicles.find(
-            (v) =>
-              v.garageNumber.toLowerCase() === currentUrlGarage.toLowerCase() ||
-              v.id.toLowerCase() === currentUrlGarage.toLowerCase()
-          );
-          if (urlMatch) {
-            setSelectedVehicleId(urlMatch.id);
-            setSearchTerm(urlMatch.garageNumber);
-            return;
+    const syncFromFirestore = async (forceServer = false) => {
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        wasOfflineRef.current = true;
+        return;
+      }
+      if (isSyncingRef.current) return;
+      isSyncingRef.current = true;
+
+      try {
+        const remoteVehicles = await fetchVehiclesOnce(forceServer);
+        if (!isMounted || !remoteVehicles || remoteVehicles.length === 0) return;
+
+        const prevSerialized = JSON.stringify(vehiclesRef.current);
+        const nextSerialized = JSON.stringify(remoteVehicles);
+        const hasChanges = prevSerialized !== nextSerialized;
+
+        if (hasChanges) {
+          setVehicles(remoteVehicles);
+          saveStoredVehicles(remoteVehicles);
+
+          const currentUrlGarage = getGarageFromUrl();
+          if (currentUrlGarage) {
+            const urlMatch = remoteVehicles.find(
+              (v) =>
+                v.garageNumber.toLowerCase() === currentUrlGarage.toLowerCase() ||
+                v.id.toLowerCase() === currentUrlGarage.toLowerCase()
+            );
+            if (urlMatch) {
+              setSelectedVehicleId(urlMatch.id);
+              setSearchTerm(urlMatch.garageNumber);
+            }
+          } else {
+            // Keep selection valid
+            setSelectedVehicleId((currentId) => {
+              if (currentId && remoteVehicles.some((v) => v.id === currentId)) {
+                return currentId;
+              }
+              const savedVehId = getLastVehicleId();
+              if (savedVehId && remoteVehicles.some((v) => v.id === savedVehId)) {
+                return savedVehId;
+              }
+              const currentSearch = getLastSearchTerm();
+              if (currentSearch) {
+                const match = remoteVehicles.find(
+                  (v) =>
+                    v.garageNumber.toLowerCase() === currentSearch.toLowerCase() ||
+                    v.garageNumber.toLowerCase().includes(currentSearch.toLowerCase()) ||
+                    v.licensePlate.toLowerCase().includes(currentSearch.toLowerCase())
+                );
+                if (match) return match.id;
+              }
+              return null;
+            });
+          }
+
+          if (wasOfflineRef.current || forceServer) {
+            setSyncNotice('Связь появилась — данные обновлены');
+            if (noticeTimer) clearTimeout(noticeTimer);
+            noticeTimer = setTimeout(() => {
+              if (isMounted) setSyncNotice(null);
+            }, 3500);
           }
         }
 
-        // Keep selection valid
-        setSelectedVehicleId((currentId) => {
-          if (currentId && remoteVehicles.some((v) => v.id === currentId)) {
-            return currentId;
-          }
-          const savedLastVehId = getLastVehicleId();
-          if (savedLastVehId && remoteVehicles.some((v) => v.id === savedLastVehId)) {
-            return savedLastVehId;
-          }
-          const currentSearch = getLastSearchTerm();
-          if (currentSearch) {
-            const match = remoteVehicles.find(
-              (v) =>
-                v.garageNumber.toLowerCase() === currentSearch.toLowerCase() ||
-                v.garageNumber.toLowerCase().includes(currentSearch.toLowerCase()) ||
-                v.licensePlate.toLowerCase().includes(currentSearch.toLowerCase())
-            );
-            if (match) return match.id;
-          }
-          return null;
-        });
-      })
-      .catch((err) => {
+        lastSyncOkAtRef.current = Date.now();
+        wasOfflineRef.current = false;
+      } catch (err) {
+        wasOfflineRef.current = true;
         console.warn('Firestore fetch notice (using local storage cache):', err);
-      });
+      } finally {
+        isSyncingRef.current = false;
+      }
+    };
+
+    syncFromFirestore(false);
+
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncFromFirestore(true);
+    };
+
+    const handleOffline = () => {
+      setIsOnline(false);
+      wasOfflineRef.current = true;
+    };
+
+    const handleVisibilitySync = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) {
+        const isStale = Date.now() - lastSyncOkAtRef.current > 3 * 60 * 1000;
+        if (wasOfflineRef.current || isStale) {
+          syncFromFirestore(wasOfflineRef.current);
+        }
+      }
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', handleVisibilitySync);
 
     return () => {
       isMounted = false;
+      if (noticeTimer) clearTimeout(noticeTimer);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', handleVisibilitySync);
     };
   }, []);
 
@@ -560,6 +629,20 @@ export default function App() {
       isOpen={isChangelogOpen}
       onClose={() => setIsChangelogOpen(false)}
     />
+
+    {!isOnline && (
+      <div className="fixed bottom-4 left-4 z-40 flex items-center gap-2 rounded-xl bg-amber-600/95 border border-amber-400/40 px-3 py-2 text-xs font-semibold text-white shadow-xl backdrop-blur-sm">
+        <WifiOff className="w-3.5 h-3.5 shrink-0" />
+        <span>Нет сети — открыта сохранённая база</span>
+      </div>
+    )}
+
+    {isOnline && syncNotice && (
+      <div className="fixed bottom-4 left-4 z-40 flex items-center gap-2 rounded-xl bg-emerald-600/95 border border-emerald-400/40 px-3 py-2 text-xs font-semibold text-white shadow-xl backdrop-blur-sm">
+        <RefreshCw className="w-3.5 h-3.5 shrink-0" />
+        <span>{syncNotice}</span>
+      </div>
+    )}
     </>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Smartphone } from 'lucide-react';
+import { Smartphone } from 'lucide-react';
 import { NotificationToggle } from './NotificationToggle';
 import { Vehicle } from '../types';
 

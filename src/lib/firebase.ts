@@ -1,20 +1,26 @@
 import { initializeApp, getApps } from 'firebase/app';
 import {
+  Firestore,
+  initializeFirestore,
   getFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection,
   doc,
   setDoc,
   getDoc,
+  getDocFromServer,
   deleteDoc,
   onSnapshot,
   getDocs,
-  writeBatch,
-  enableIndexedDbPersistence
+  getDocsFromServer,
+  waitForPendingWrites,
+  writeBatch
 } from 'firebase/firestore';
 import { Vehicle } from '../types';
 import { INITIAL_VEHICLES } from '../data/mockVehicles';
 
-// Hardcoded Firebase configuration for direct connection (e.g. on Vercel)
+// Hardcoded Firebase configuration for direct connection
 const firebaseConfig = {
   projectId: "watchful-snow-75xj8",
   appId: "1:429685830538:web:cdc0eaac9c437954ed8e73",
@@ -31,24 +37,41 @@ const firebaseConfig = {
 // Initialize Firebase App
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-// Initialize Firestore with specific database ID if present, else default
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
-
-// Enable offline persistence (IndexedDB)
-if (typeof window !== 'undefined') {
-  enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code === 'failed-precondition') {
-      console.warn('Firestore persistence failed: Multiple tabs open');
-    } else if (err.code === 'unimplemented') {
-      console.warn('Firestore persistence not supported by browser');
-    }
-  });
+// Initialize Firestore with multi-tab IndexedDB persistent cache
+let dbInstance: Firestore;
+try {
+  dbInstance = initializeFirestore(
+    app,
+    {
+      localCache: persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
+    },
+    firebaseConfig.firestoreDatabaseId
+  );
+} catch {
+  dbInstance = firebaseConfig.firestoreDatabaseId
+    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+    : getFirestore(app);
 }
+export const db = dbInstance;
 
 const VEHICLES_COLLECTION = 'vehicles';
 const META_DOC_REF = doc(db, '_meta', 'initialized');
+
+async function testConnection() {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  try {
+    await getDocFromServer(doc(db, 'test', 'connection'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn('Firestore offline at startup, using local cache.');
+    }
+  }
+}
+if (typeof window !== 'undefined') {
+  testConnection();
+}
 
 export enum OperationType {
   CREATE = 'create',
@@ -76,15 +99,40 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 }
 
 /**
- * Fetch all vehicles from Firestore ONCE when requested.
- * Does not establish a continuous real-time listener, saving daily Firestore read quota.
+ * Flush queued offline Firestore writes before pulling fresh server data.
  */
-export async function fetchVehiclesOnce(): Promise<Vehicle[]> {
+export async function syncPendingWritesSafe(timeoutMs = 4000): Promise<void> {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
   try {
+    await Promise.race([
+      waitForPendingWrites(db),
+      new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+    ]);
+  } catch {
+    // Non-blocking fallback
+  }
+}
+
+/**
+ * Fetch all vehicles from Firestore ONCE when requested.
+ * Supports forceServer to bypass local IndexedDB cache when reconnecting online.
+ */
+export async function fetchVehiclesOnce(forceServer = false): Promise<Vehicle[] | null> {
+  try {
+    if (forceServer) {
+      await syncPendingWritesSafe();
+    }
+
     const vehiclesRef = collection(db, VEHICLES_COLLECTION);
-    const snapshot = await getDocs(vehiclesRef);
+    const snapshot = forceServer
+      ? await getDocsFromServer(vehiclesRef)
+      : await getDocs(vehiclesRef);
 
     if (snapshot.empty) {
+      if (snapshot.metadata.fromCache) {
+        // Offline / empty IndexedDB cache — keep existing localStorage data untouched
+        return null;
+      }
       try {
         const metaSnap = await getDoc(META_DOC_REF);
         if (!metaSnap.exists()) {
