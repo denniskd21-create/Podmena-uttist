@@ -1,4 +1,4 @@
-const CACHE_NAME = 'podmena-uttist-v23';
+const CACHE_NAME = 'podmena-uttist-v24';
 const ASSETS = [
   '/',
   '/manifest.json',
