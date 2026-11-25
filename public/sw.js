@@ -1,4 +1,4 @@
-const CACHE_NAME = 'podmena-uttist-v24';
+const CACHE_NAME = 'podmena-uttist-v23';
 const ASSETS = [
   '/',
   '/manifest.json',
@@ -30,12 +30,6 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
-  const url = new URL(event.request.url);
-  // Never cache API calls or Firestore/Google endpoints
-  if (url.pathname.startsWith('/api/') || url.origin !== self.location.origin) {
-    return;
-  }
-
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -61,69 +55,28 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-self.addEventListener('push', (event) => {
-  let payload = {
-    title: 'Подмена — УТТиСТ',
-    body: 'Напоминание по маршруту',
-    tag: 'podmena-push',
-    url: '/'
-  };
-
-  if (event.data) {
-    try {
-      const parsed = event.data.json();
-      if (parsed && typeof parsed === 'object') {
-        payload = { ...payload, ...parsed };
-      }
-    } catch {
-      const text = event.data.text();
-      if (text) payload.body = text;
-    }
-  }
-
-  const options = {
-    body: payload.body,
-    icon: '/logo.webp',
-    badge: '/logo.webp',
-    vibrate: [250, 100, 250, 100, 250],
-    tag: payload.tag || payload.id || 'podmena-push',
-    renotify: true,
-    requireInteraction: true,
-    data: {
-      url: payload.url || '/'
-    }
-  };
-
-  event.waitUntil(
-    self.registration.showNotification(payload.title, options)
-  );
-});
-
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
     const { title, body, icon, tag } = event.data;
-    event.waitUntil(
-      self.registration.showNotification(title, {
-        body,
-        icon: icon || '/logo.webp',
-        badge: '/logo.webp',
-        vibrate: [200, 100, 200, 100, 200],
-        tag: tag || 'podmena-alert',
-        requireInteraction: true,
-      })
-    );
+    self.registration.showNotification(title, {
+      body,
+      icon: icon || '/logo.webp',
+      badge: '/logo.webp',
+      vibrate: [200, 100, 200, 100, 200],
+      tag: tag || 'podmena-alert',
+      requireInteraction: true,
+    });
   }
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = (event.notification && event.notification.data && event.notification.data.url) || '/';
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if ('focus' in client) return client.focus();
       }
-      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+      if (self.clients.openWindow) return self.clients.openWindow('/');
     })
   );
 });

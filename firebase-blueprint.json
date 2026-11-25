@@ -8,71 +8,43 @@
         "id": { "type": "string" },
         "garageNumber": { "type": "string" },
         "licensePlate": { "type": "string" },
-        "autoColumn": { "type": "string" },
+        "column": { "type": "string" },
         "brandModel": { "type": "string" },
-        "vehicleType": { "type": "string" },
-        "shiftType": { "type": "string" },
-        "departureTime": { "type": "string" },
-        "returnTime": { "type": "string" },
-        "parkingSpot": { "type": "string" },
-        "pickupPoints": { "type": "array" },
-        "customerName": { "type": "string" },
         "mvzCode": { "type": "string" },
         "mvzDescription": { "type": "string" },
-        "submissionLocation": { "type": "string" },
-        "techNuances": { "type": "array" },
-        "crewMembers": { "type": "array" },
-        "notes": { "type": "array" },
-        "lastUpdated": { "type": "string" }
-      },
-      "required": ["id", "garageNumber", "licensePlate"]
-    },
-    "pushSubscription": {
-      "title": "PushSubscriptionRecord",
-      "description": "Server-encrypted Web Push subscription and scheduled notification timestamps",
-      "type": "object",
-      "properties": {
-        "id": {
-          "type": "string",
-          "pattern": "^[a-f0-9]{64}$",
-          "minLength": 64,
-          "maxLength": 64
+        "drivers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "fullName": { "type": "string" },
+              "shift": { "type": "string" },
+              "phone": { "type": "string" },
+              "personnelNumber": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          }
         },
-        "encryptedPayload": {
-          "type": "string",
-          "minLength": 16,
-          "maxLength": 16384
+        "nuances": {
+          "type": "array",
+          "items": { "type": "string" }
         },
-        "enabled": { "type": "boolean" },
-        "nextTriggerAt": { "type": "number" },
-        "sentIds": { "type": "array" },
-        "updatedAt": { "type": "number" }
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "author": { "type": "string" },
+              "text": { "type": "string" },
+              "createdAt": { "type": "string" }
+            }
+          }
+        },
+        "updatedAt": { "type": "string" }
       },
-      "required": ["id", "encryptedPayload", "enabled", "nextTriggerAt", "sentIds", "updatedAt"]
-    },
-    "metaState": {
-      "title": "MetaState",
-      "description": "Initialization metadata marker",
-      "type": "object",
-      "properties": {
-        "initialized": { "type": "boolean" },
-        "timestamp": { "type": "string", "maxLength": 64 }
-      },
-      "required": ["initialized", "timestamp"]
-    }
-  },
-  "firestore": {
-    "/vehicles/{vehicleId}": {
-      "schema": { "$ref": "#/entities/vehicles" },
-      "description": "Shared directory of vehicles, shift routes, and driver notes"
-    },
-    "/push_subscriptions/{subId}": {
-      "schema": { "$ref": "#/entities/pushSubscription" },
-      "description": "Encrypted Web Push device subscriptions and trigger timestamps"
-    },
-    "/_meta/{metaId}": {
-      "schema": { "$ref": "#/entities/metaState" },
-      "description": "Database initialization markers"
+      "required": ["garageNumber", "licensePlate"]
     }
   }
 }
